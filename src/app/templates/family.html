@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .household-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 4px solid #f5576c;
+  }
+  .household-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  }
+  .member-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+  }
+  .member-badge .remove-member-btn {
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .member-badge .remove-member-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.5);
+  }
+</style>
+
+<div class="page-header fade-in">
+  <h1 class="mb-0"><i class="bi bi-heart-fill"></i> Family Management</h1>
+  <p class="mb-0 mt-2">Manage households and family members</p>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h5 class="mb-0"><i class="bi bi-house-add-fill"></i> Create New Household</h5>
+  </div>
+  <div class="card-body">
+    <form id="household-form" class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Household Name</label>
+        <input class="form-control" name="name" placeholder="The Smiths" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Address</label>
+        <input class="form-control" name="address" placeholder="123 Main St">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Phone</label>
+        <input class="form-control" name="phone" placeholder="+1 555-1234">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Email</label>
+        <input class="form-control" name="email" type="email" placeholder="family@example.com">
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-check-circle-fill"></i> Create Household
+        </button>
+        <span id="household-msg" class="text-success ms-3"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="households" class="row"></div>
+
+<script>
+let allUsers = [];
+
+async function loadFamilyPage() {
+  const container = document.getElementById('households');
+  
+  // Load all users for the member dropdown
+  try {
+    const usersRes = await fetch('/api/users');
+    if (usersRes.ok) {
+      allUsers = await usersRes.json();
+    }
+  } catch (e) {
+    console.error('Failed to load users:', e);
+  }
+  
+  const render = (hhs) => {
+    if (hhs.length === 0) {
+      container.innerHTML = `
+        <div class="col-12">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill"></i> No households found. Create one above to get started!
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = hhs.map(h => `
+      <div class="col-md-6 col-lg-4 mb-4 fade-in">
+        <div class="card household-card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">
+              <i class="bi bi-house-fill"></i> ${h.name}
+            </h5>
+            <div class="mb-3">
+              ${h.address ? `<p class="mb-1"><i class="bi bi-geo-alt-fill"></i> ${h.address}</p>` : ''}
+              ${h.phone ? `<p class="mb-1"><i class="bi bi-telephone-fill"></i> ${h.phone}</p>` : ''}
+              ${h.email ? `<p class="mb-1"><i class="bi bi-envelope-fill"></i> ${h.email}</p>` : ''}
+            </div>
+            
+            <h6 class="mb-2"><i class="bi bi-people-fill"></i> Members (${(h.members||[]).length})</h6>
+            <div class="mb-3">
+              ${(h.members||[]).length > 0 
+                ? (h.members||[]).map(m => `
+                    <div class="member-badge d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>${m.display_name}</strong>
+                        ${m.role ? `<span class="badge bg-${m.role === 'admin' ? 'danger' : m.role === 'user' ? 'primary' : 'secondary'} ms-2">${m.role}</span>` : ''}
+                        <br><small><i class="bi bi-envelope-fill"></i> ${m.email}</small>
+                      </div>
+                      <button class="btn btn-sm btn-outline-light remove-member-btn" 
+                              data-hid="${h.id}" 
+                              data-mid="${m.id}"
+                              title="Remove member">
+                        <i class="bi bi-x-circle-fill"></i>
+                      </button>
+                    </div>
+                  `).join('')
+                : '<p class="text-muted small">No members yet</p>'
+              }
+            </div>
+            
+            <div class="border-top pt-3">
+              <h6 class="mb-2"><i class="bi bi-person-plus-fill"></i> Add Member</h6>
+              <form class="member-form" data-hid="${h.id}">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label form-label-sm mb-1">User</label>
+                    <select class="form-select form-select-sm" name="user_id" required>
+                      <option value="">Select User</option>
+                      ${allUsers.map(u => `<option value="${u.id}">${u.display_name} (${u.email})</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label form-label-sm mb-1">Household Role</label>
+                    <select class="form-select form-select-sm" name="role" required>
+                      <option value="user">User (can view & edit)</option>
+                      <option value="admin">Admin (full control)</option>
+                      <option value="view-only">View Only</option>
+                    </select>
+                    <small class="text-muted">
+                      Role determines household access. 
+                      <a href="/admin/users" class="text-info">Add family relationships in user profiles</a>.
+                    </small>
+                  </div>
+                  <div class="col-12">
+                    <textarea class="form-control form-control-sm" name="notes" placeholder="Notes (optional)" rows="2"></textarea>
+                  </div>
+                  <div class="col-12">
+                    <button class="btn btn-sm btn-primary w-100" type="submit">
+                      <i class="bi bi-plus-circle-fill"></i> Add Member
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    // Attach event listeners for member forms
+    document.querySelectorAll('.member-form').forEach(form => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const payload = Object.fromEntries(fd.entries());
+        const hid = e.target.getAttribute('data-hid');
+        try {
+          const res = await fetch(`/api/family/households/${hid}/members`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            await load();
+            e.target.reset();
+          } else {
+            const error = await res.json();
+            alert(error.error || 'Failed to add member');
+          }
+        } catch (e) {
+          console.error('Error adding member:', e);
+          alert('Failed to add member');
+        }
+      });
+    });
+    
+    // Attach event listeners for remove buttons
+    document.querySelectorAll('.remove-member-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const hid = btn.getAttribute('data-hid');
+        const mid = btn.getAttribute('data-mid');
+        if (confirm('Are you sure you want to remove this member from the household?')) {
+          try {
+            const res = await fetch(`/api/family/households/${hid}/members/${mid}`, { 
+              method: 'DELETE'
+            });
+            if (res.ok) {
+              await load();
+            } else {
+              alert('Failed to remove member');
+            }
+          } catch (e) {
+            console.error('Error removing member:', e);
+            alert('Failed to remove member');
+          }
+        }
+      });
+    });
+  };
+  
+  const load = async () => {
+    try {
+      const res = await fetch('/api/family/households');
+      render(await res.json());
+    } catch (e) {
+      container.innerHTML = '<div class="col-12"><div class="alert alert-danger">Failed to load households</div></div>';
+      console.error(e);
+    }
+  };
+  
+  document.getElementById('household-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = Object.fromEntries(fd.entries());
+    try {
+      const res = await fetch('/api/family/households', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        document.getElementById('household-msg').innerHTML = '<i class="bi bi-check-circle-fill"></i> Household created!';
+        e.target.reset();
+        await load();
+        setTimeout(() => {
+          document.getElementById('household-msg').textContent = '';
+        }, 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  
+  await load();
+}
+
+document.addEventListener('DOMContentLoaded', loadFamilyPage);
+</script>
+{% endblock %}

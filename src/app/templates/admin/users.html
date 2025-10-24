@@ -1,0 +1,937 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .user-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 4px solid #0d6efd;
+    position: relative;
+  }
+  .user-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    z-index: 10;
+  }
+  .user-card .dropdown-menu {
+    z-index: 1050;
+  }
+  .badge-group {
+    font-size: 0.85rem;
+    padding: 0.4em 0.65em;
+    margin: 0.2em;
+  }
+  .modal-backdrop.show {
+    opacity: 0.7;
+  }
+  .fade-in {
+    animation: fadeIn 0.3s;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .btn-icon {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  .section-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  .stats-card {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .group-badge-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  .group-badge-success { background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%); }
+  .group-badge-danger { background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%); }
+  .group-badge-warning { background: linear-gradient(135deg, #f46b45 0%, #eea849 100%); }
+  .group-badge-info { background: linear-gradient(135deg, #2af598 0%, #009efd 100%); }
+</style>
+
+<div class="section-header fade-in">
+  <h1 class="mb-0"><i class="bi bi-people-fill"></i> User Management</h1>
+  <p class="mb-0 mt-2">Manage users, groups, and permissions</p>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="stats-card fade-in">
+      <h5><i class="bi bi-person-fill"></i> Total Users</h5>
+      <h2 id="total-users" class="mb-0">0</h2>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stats-card fade-in" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+      <h5><i class="bi bi-shield-fill"></i> Total Groups</h5>
+      <h2 id="total-groups" class="mb-0">0</h2>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stats-card fade-in" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+      <h5><i class="bi bi-person-check-fill"></i> Admins</h5>
+      <h2 id="total-admins" class="mb-0">0</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0"><i class="bi bi-plus-circle-fill"></i> Quick Actions</h5>
+    </div>
+    <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#createUserModal">
+      <i class="bi bi-person-plus-fill"></i> Create User
+    </button>
+    <button class="btn btn-success me-2" id="seed-groups">
+      <i class="bi bi-cloud-download-fill"></i> Seed Groups
+    </button>
+    <button class="btn btn-info" id="refresh-users">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
+</div>
+
+<div id="users-container" class="row"></div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-person-plus-fill"></i> Create New User</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="create-user-form">
+          <h6 class="mb-3 text-primary"><i class="bi bi-lock-fill"></i> Account Information</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" name="email" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Display Name</label>
+              <input type="text" class="form-control" name="display_name" required>
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-control" name="password" required>
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-primary"><i class="bi bi-person-fill"></i> Personal Information</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">First Name</label>
+              <input type="text" class="form-control" name="first_name">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Middle Name</label>
+              <input type="text" class="form-control" name="middle_name">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-control" name="last_name">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Sex</label>
+              <select class="form-select" name="sex">
+                <option value="">Select...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="intersex">Intersex</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Gender</label>
+              <input type="text" class="form-control" name="gender" placeholder="e.g., Man, Woman, Non-binary">
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-primary"><i class="bi bi-telephone-fill"></i> Contact Information</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Phone</label>
+              <input type="tel" class="form-control" name="phone">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" name="address" rows="2"></textarea>
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-primary"><i class="bi bi-calendar-fill"></i> Important Dates</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Birthday</label>
+              <input type="date" class="form-control" name="birthday">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Adoption Date</label>
+              <input type="date" class="form-control" name="adoption_date">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Death Date</label>
+              <input type="date" class="form-control" name="death_date">
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-primary"><i class="bi bi-chat-left-text-fill"></i> Additional Notes</h6>
+          <div class="mb-3">
+            <textarea class="form-control" name="notes" rows="3" placeholder="Any additional information..."></textarea>
+          </div>
+          
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-circle-fill"></i> Create User
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="bi bi-pencil-fill"></i> Edit User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-user-form">
+          <input type="hidden" id="edit-user-id">
+          
+          <h6 class="mb-3 text-warning"><i class="bi bi-lock-fill"></i> Account Information</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="edit-email" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Display Name</label>
+              <input type="text" class="form-control" id="edit-display-name" required>
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="form-label">New Password (leave blank to keep current)</label>
+              <input type="password" class="form-control" id="edit-password">
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-warning"><i class="bi bi-person-fill"></i> Personal Information</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">First Name</label>
+              <input type="text" class="form-control" id="edit-first-name">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Middle Name</label>
+              <input type="text" class="form-control" id="edit-middle-name">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Last Name</label>
+              <input type="text" class="form-control" id="edit-last-name">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Sex</label>
+              <select class="form-select" id="edit-sex">
+                <option value="">Select...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="intersex">Intersex</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Gender</label>
+              <input type="text" class="form-control" id="edit-gender" placeholder="e.g., Man, Woman, Non-binary">
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-warning"><i class="bi bi-telephone-fill"></i> Contact Information</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Phone</label>
+              <input type="tel" class="form-control" id="edit-phone">
+            </div>
+            <div class="col-md-12 mb-3">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" id="edit-address" rows="2"></textarea>
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-warning"><i class="bi bi-calendar-fill"></i> Important Dates</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Birthday</label>
+              <input type="date" class="form-control" id="edit-birthday">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Adoption Date</label>
+              <input type="date" class="form-control" id="edit-adoption-date">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Death Date</label>
+              <input type="date" class="form-control" id="edit-death-date">
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-warning"><i class="bi bi-chat-left-text-fill"></i> Additional Notes</h6>
+          <div class="mb-3">
+            <textarea class="form-control" id="edit-notes" rows="3" placeholder="Any additional information..."></textarea>
+          </div>
+          
+          <hr class="my-3">
+          <h6 class="mb-3 text-info"><i class="bi bi-people-fill"></i> Family Relationships</h6>
+          <p class="text-muted small">Direct family connections (independent of household membership)</p>
+          
+          <!-- Existing relationships -->
+          <div id="existing-relationships" class="mb-3">
+            <div class="list-group" id="relationships-list"></div>
+          </div>
+          
+          <!-- Add new relationship -->
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title mb-3">Add Family Relationship</h6>
+              <div class="row">
+                <div class="col-md-6 mb-2">
+                  <label class="form-label">Select Person</label>
+                  <select class="form-select" id="add-related-user">
+                    <option value="">Select user...</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-2">
+                  <label class="form-label">Selected person is <span id="current-user-name-label">current user</span>'s:</label>
+                  <select class="form-select" id="add-relationship-type">
+                    <option value="parent">Parent</option>
+                    <option value="father">Father</option>
+                    <option value="mother">Mother</option>
+                    <option value="son">Son</option>
+                    <option value="daughter">Daughter</option>
+                    <option value="child">Child</option>
+                    <option value="adoptive-parent">Adoptive Parent</option>
+                    <option value="adoptive-father">Adoptive Father</option>
+                    <option value="adoptive-mother">Adoptive Mother</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="brother">Brother</option>
+                    <option value="sister">Sister</option>
+                    <option value="sibling">Sibling</option>
+                    <option value="grandparent">Grandparent</option>
+                    <option value="grandchild">Grandchild</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Notes (optional)</label>
+                <input type="text" class="form-control" id="add-relationship-notes" placeholder="e.g., biological, step, half-sibling, etc.">
+              </div>
+              <button type="button" class="btn btn-sm btn-info" id="btn-add-relationship">
+                <i class="bi bi-plus-circle-fill"></i> Add Relationship
+              </button>
+            </div>
+          </div>
+          
+          <hr class="my-3">
+          <button type="submit" class="btn btn-warning w-100">
+            <i class="bi bi-check-circle-fill"></i> Update User
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Manage Groups Modal -->
+<div class="modal fade" id="manageGroupsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="bi bi-shield-fill"></i> Manage Groups</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="manage-user-id">
+        <h6 id="manage-user-name" class="mb-3"></h6>
+        <div class="mb-3">
+          <label class="form-label">Available Groups</label>
+          <div id="available-groups" class="d-flex flex-wrap gap-2"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Add Custom Group</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="custom-group-name" placeholder="Group name">
+            <button class="btn btn-primary" id="add-custom-group">
+              <i class="bi bi-plus-circle-fill"></i> Add
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<script>
+let allUsers = [];
+let allGroups = [];
+let userPermissions = {}; // Track edit permissions: {userId: {can_edit: bool, reason: string}}
+const currentUserId = {{ current_user_id }};
+
+const groupColors = {
+  'admin': 'danger', 'super-admin': 'danger',
+  'parent': 'primary', 'adult': 'primary',
+  'user': 'success', 'child': 'info',
+  'family-admin': 'warning', 'family-editor': 'warning', 'family-view': 'warning',
+  'banned': 'dark', 'locked': 'dark', 'no-access': 'dark'
+};
+
+function getGroupBadgeClass(groupName) {
+  const color = groupColors[groupName] || 'secondary';
+  return `badge bg-${color} badge-group`;
+}
+
+async function loadUsers() {
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) {
+      console.error('Failed to load users:', res.status, res.statusText);
+      showToast('Failed to load users', 'danger');
+      return;
+    }
+    allUsers = await res.json();
+    
+    // Load permissions for each user
+    await loadUserPermissions();
+    
+    renderUsers();
+    updateStats();
+  } catch (e) {
+    console.error('Error loading users:', e);
+    showToast('Network error loading users', 'danger');
+  }
+}
+
+async function loadUserPermissions() {
+  // Check edit permissions for each user
+  const promises = allUsers.map(async (u) => {
+    try {
+      const res = await fetch(`/api/users/${u.id}/can-edit`);
+      if (res.ok) {
+        userPermissions[u.id] = await res.json();
+      } else {
+        userPermissions[u.id] = {can_edit: false};
+      }
+    } catch (e) {
+      userPermissions[u.id] = {can_edit: false};
+    }
+  });
+  await Promise.all(promises);
+}
+
+async function loadGroups() {
+  try {
+    const res = await fetch('/api/users/groups');
+    if (!res.ok) {
+      console.error('Failed to load groups:', res.status, res.statusText);
+      return;
+    }
+    allGroups = await res.json();
+  } catch (e) {
+    console.error('Error loading groups:', e);
+  }
+}
+
+function updateStats() {
+  document.getElementById('total-users').textContent = allUsers.length;
+  const adminCount = allUsers.filter(u => u.groups.some(g => g === 'admin' || g === 'super-admin')).length;
+  document.getElementById('total-admins').textContent = adminCount;
+}
+
+async function updateGroupStats() {
+  const res = await fetch('/api/users/groups');
+  const groups = await res.json();
+  document.getElementById('total-groups').textContent = groups.length;
+}
+
+function renderUsers() {
+  const container = document.getElementById('users-container');
+  container.innerHTML = allUsers.map(u => {
+    const perms = userPermissions[u.id] || {can_edit: false};
+    const isAdmin = perms.reason === 'admin';
+    const canEdit = perms.can_edit;
+    
+    // Build dropdown menu based on permissions
+    let dropdownItems = '';
+    if (canEdit) {
+      dropdownItems += `
+        <li><a class="dropdown-item" href="#" onclick="editUser(${u.id})">
+          <i class="bi bi-pencil-fill"></i> Edit
+        </a></li>`;
+    }
+    if (isAdmin) {
+      dropdownItems += `
+        <li><a class="dropdown-item" href="#" onclick="manageGroups(${u.id})">
+          <i class="bi bi-shield-fill"></i> Manage Groups
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="#" onclick="deleteUser(${u.id})">
+          <i class="bi bi-trash-fill"></i> Delete
+        </a></li>`;
+    }
+    
+    // Only show dropdown if there are actions available
+    const dropdown = dropdownItems ? `
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+          <i class="bi bi-three-dots-vertical"></i>
+        </button>
+        <ul class="dropdown-menu">
+          ${dropdownItems}
+        </ul>
+      </div>` : '';
+    
+    return `
+    <div class="col-md-6 col-lg-4 mb-3 fade-in">
+      <div class="card user-card h-100 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="card-title mb-0">
+              <i class="bi bi-person-circle"></i> ${u.display_name}
+            </h6>
+            ${dropdown}
+          </div>
+          <p class="card-text text-muted small mb-2">
+            <i class="bi bi-envelope-fill"></i> ${u.email}
+          </p>
+          <p class="card-text text-muted small mb-2">
+            <i class="bi bi-hash"></i> ID: ${u.id}
+          </p>
+          <div class="mb-0">
+            <small class="text-muted d-block mb-1">Groups:</small>
+            <div>
+              ${u.groups.length > 0 
+                ? u.groups.map(g => `<span class="${getGroupBadgeClass(g)}">${g}</span>`).join(' ')
+                : '<span class="badge bg-secondary">No groups</span>'
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd.entries());
+  try {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+      e.target.reset();
+      await loadUsers();
+      showToast('User created successfully!', 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed to create user: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error creating user:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+});
+
+document.getElementById('edit-user-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-user-id').value;
+  const data = {
+    email: document.getElementById('edit-email').value,
+    display_name: document.getElementById('edit-display-name').value,
+    password: document.getElementById('edit-password').value,
+    first_name: document.getElementById('edit-first-name').value,
+    middle_name: document.getElementById('edit-middle-name').value,
+    last_name: document.getElementById('edit-last-name').value,
+    sex: document.getElementById('edit-sex').value,
+    gender: document.getElementById('edit-gender').value,
+    phone: document.getElementById('edit-phone').value,
+    address: document.getElementById('edit-address').value,
+    birthday: document.getElementById('edit-birthday').value,
+    adoption_date: document.getElementById('edit-adoption-date').value,
+    death_date: document.getElementById('edit-death-date').value,
+    notes: document.getElementById('edit-notes').value
+  };
+  try {
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+      await loadUsers();
+      showToast('User updated successfully!', 'success');
+    } else {
+      const error = await res.json();
+      console.error('Update user failed:', res.status, error);
+      showToast(`Failed to update user: ${error.error || error.message || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error updating user:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+});
+
+async function editUser(id) {
+  const user = allUsers.find(u => u.id === id);
+  if (!user) return;
+  document.getElementById('edit-user-id').value = user.id;
+  document.getElementById('edit-email').value = user.email;
+  document.getElementById('edit-display-name').value = user.display_name;
+  document.getElementById('edit-password').value = '';
+  
+  // Personal information
+  document.getElementById('edit-first-name').value = user.first_name || '';
+  document.getElementById('edit-middle-name').value = user.middle_name || '';
+  document.getElementById('edit-last-name').value = user.last_name || '';
+  document.getElementById('edit-sex').value = user.sex || '';
+  document.getElementById('edit-gender').value = user.gender || '';
+  
+  // Contact information
+  document.getElementById('edit-phone').value = user.phone || '';
+  document.getElementById('edit-address').value = user.address || '';
+  
+  // Important dates
+  document.getElementById('edit-birthday').value = user.birthday || '';
+  document.getElementById('edit-adoption-date').value = user.adoption_date || '';
+  document.getElementById('edit-death-date').value = user.death_date || '';
+  
+  // Notes
+  document.getElementById('edit-notes').value = user.notes || '';
+  
+  // Load relationships for this user
+  await loadUserRelationships(id);
+  
+  // Update the relationship label with the user's name
+  document.getElementById('current-user-name-label').textContent = user.display_name || user.email;
+  
+  // Populate related user dropdown (exclude current user)
+  const relatedUserSelect = document.getElementById('add-related-user');
+  relatedUserSelect.innerHTML = '<option value="">Select user...</option>';
+  allUsers.filter(u => u.id !== id).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.display_name || u.email;
+    relatedUserSelect.appendChild(opt);
+  });
+  
+  new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+async function loadUserRelationships(userId) {
+  try {
+    const res = await fetch(`/api/relationships/user/${userId}`);
+    if (!res.ok) {
+      console.error('Failed to load relationships:', res.status);
+      return;
+    }
+    const data = await res.json();
+    console.log('Loaded relationships for user', userId, ':', data);
+    const list = document.getElementById('relationships-list');
+    list.innerHTML = '';
+    
+    // Show outgoing relationships (user -> related_user)
+    if (data.outgoing && data.outgoing.length > 0) {
+      data.outgoing.forEach(rel => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `
+          <div>
+            <strong>${rel.relationship_type}</strong> → ${rel.related_user_name}
+            ${rel.notes ? `<br><small class="text-muted">${rel.notes}</small>` : ''}
+          </div>
+          <button class="btn btn-sm btn-outline-danger" onclick="removeRelationship(${rel.id}, ${userId})">
+            <i class="bi bi-trash-fill"></i>
+          </button>
+        `;
+        list.appendChild(item);
+      });
+    }
+    
+    if (list.children.length === 0) {
+      list.innerHTML = '<p class="text-muted text-center py-2 mb-0">No family relationships yet</p>';
+    }
+  } catch (e) {
+    console.error('Error loading relationships:', e);
+  }
+}
+
+async function addRelationship(userId) {
+  const relatedUserId = document.getElementById('add-related-user').value;
+  const relationshipType = document.getElementById('add-relationship-type').value;
+  const notes = document.getElementById('add-relationship-notes').value;
+  
+  if (!relatedUserId) {
+    showToast('Please select a related user', 'warning');
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        related_user_id: parseInt(relatedUserId),
+        relationship_type: relationshipType,
+        notes: notes || null
+      })
+    });
+    
+    if (res.ok) {
+      // Clear form
+      document.getElementById('add-related-user').value = '';
+      document.getElementById('add-relationship-type').value = 'parent';
+      document.getElementById('add-relationship-notes').value = '';
+      
+      // Reload relationships
+      await loadUserRelationships(userId);
+      showToast('Relationship added successfully!', 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed to add relationship: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error adding relationship:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+}
+
+async function removeRelationship(relationshipId, userId) {
+  if (!confirm('Remove this family relationship?')) return;
+  
+  try {
+    const res = await fetch(`/api/relationships/${relationshipId}`, {
+      method: 'DELETE'
+    });
+    
+    if (res.ok) {
+      await loadUserRelationships(userId);
+      showToast('Relationship removed successfully!', 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed to remove relationship: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error removing relationship:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  try {
+    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      await loadUsers();
+      showToast('User deleted successfully!', 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed to delete user: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error deleting user:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+}
+
+async function manageGroups(id) {
+  await loadGroups();
+  const user = allUsers.find(u => u.id === id);
+  if (!user) return;
+  
+  // Store current user for this modal session
+  window.currentManageUserId = id;
+  
+  document.getElementById('manage-user-id').value = id;
+  document.getElementById('manage-user-name').textContent = `Managing groups for: ${user.display_name}`;
+  
+  renderGroupButtons(user);
+  
+  new bootstrap.Modal(document.getElementById('manageGroupsModal')).show();
+}
+
+function renderGroupButtons(user) {
+  const container = document.getElementById('available-groups');
+  container.innerHTML = allGroups.map(g => {
+    const hasGroup = user.groups.includes(g.name);
+    return `
+      <button class="btn btn-sm ${hasGroup ? 'btn-success' : 'btn-outline-secondary'}" 
+              data-group="${g.name}" 
+              data-has-group="${hasGroup}">
+        ${hasGroup ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-circle"></i>'} 
+        ${g.name}
+      </button>
+    `;
+  }).join('');
+  
+  // Add event listeners to newly created buttons
+  container.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const groupName = this.getAttribute('data-group');
+      const hasGroup = this.getAttribute('data-has-group') === 'true';
+      await toggleGroupClick(groupName, hasGroup, this);
+    });
+  });
+}
+
+async function toggleGroupClick(groupName, hasGroup, btn) {
+  const userId = window.currentManageUserId;
+  if (!userId) return;
+  
+  // Disable button during API call
+  btn.disabled = true;
+  
+  const method = hasGroup ? 'DELETE' : 'POST';
+  try {
+    const res = await fetch(`/api/users/${userId}/groups`, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: groupName })
+    });
+    
+    if (res.ok) {
+      // Update local state
+      await loadUsers();
+      const user = allUsers.find(u => u.id === userId);
+      
+      // Update button appearance
+      if (hasGroup) {
+        btn.className = 'btn btn-sm btn-outline-secondary';
+        btn.innerHTML = `<i class="bi bi-circle"></i> ${groupName}`;
+        btn.setAttribute('data-has-group', 'false');
+      } else {
+        btn.className = 'btn btn-sm btn-success';
+        btn.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${groupName}`;
+        btn.setAttribute('data-has-group', 'true');
+      }
+      
+      showToast(`Group ${hasGroup ? 'removed' : 'added'}!`, 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error toggling group:', e);
+    showToast('Network error. Please try again.', 'danger');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('add-custom-group').addEventListener('click', async () => {
+  const groupName = document.getElementById('custom-group-name').value.trim();
+  if (!groupName) {
+    showToast('Please enter a group name', 'warning');
+    return;
+  }
+  const userId = document.getElementById('manage-user-id').value;
+  
+  try {
+    const res = await fetch(`/api/users/${userId}/groups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: groupName })
+    });
+    
+    if (res.ok) {
+      document.getElementById('custom-group-name').value = '';
+      await loadUsers();
+      await loadGroups();
+      bootstrap.Modal.getInstance(document.getElementById('manageGroupsModal')).hide();
+      showToast('Group added successfully!', 'success');
+    } else {
+      const error = await res.json();
+      showToast(`Failed to add group: ${error.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (e) {
+    console.error('Error adding custom group:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+});
+
+document.getElementById('seed-groups').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/users/seed-groups', { method: 'POST' });
+    if (res.ok) {
+      await updateGroupStats();
+      await loadGroups();
+      showToast('Groups seeded successfully!', 'success');
+    } else {
+      showToast('Failed to seed groups', 'danger');
+    }
+  } catch (e) {
+    console.error('Error seeding groups:', e);
+    showToast('Network error. Please try again.', 'danger');
+  }
+});
+
+document.getElementById('refresh-users').addEventListener('click', async () => {
+  await loadUsers();
+  await updateGroupStats();
+  showToast('Refreshed!', 'info');
+});
+
+// Add relationship button - use event delegation since it's in a modal
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'btn-add-relationship' || e.target.closest('#btn-add-relationship')) {
+    const userId = parseInt(document.getElementById('edit-user-id').value);
+    if (userId) {
+      await addRelationship(userId);
+    }
+  }
+});
+
+function showToast(message, type) {
+  const toast = document.createElement('div');
+  toast.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+  toast.style.zIndex = '9999';
+  toast.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadUsers();
+  await updateGroupStats();
+});
+</script>
+{% endblock %}

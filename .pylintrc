@@ -1,0 +1,9 @@
+[MASTER]
+ignore=venv,.venv,build,dist
+extension-pkg-whitelist=
+
+[MESSAGES CONTROL]
+disable=C0114,C0115,C0116,R0903
+
+[FORMAT]
+max-line-length=100

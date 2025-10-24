@@ -239,3 +239,7 @@ docker-compose.yml
 private_*.*
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,linux,python,venv,dotenv
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

@@ -13,6 +13,35 @@ How to work in this repository
 - Branching: Create feature branches from `dev`, open PRs back to `dev`. Default branch is `main`.
 - PR hygiene: In the PR description, state assumptions (stack, structure), list added files, and how to run/build/test. Keep changes small and scoped.
 - Workspace: Use `KFamily.code-workspace`. When adding folders, ensure the workspace still opens cleanly.
+- **Commits**: When user says "commit", follow the standardized commit workflow (see below).
+
+Standardized commit workflow
+When the user requests a commit (by saying "commit", "let's commit", etc.):
+1. **Check status**: Run `git status` to see what has changed
+2. **Stage all changes**: Run `git add .` to stage all modified and new files
+3. **Generate commit message**: Create a descriptive commit message following Conventional Commits format:
+   - Format: `<type>(<scope>): <subject>`
+   - Types: `feat` (new feature), `fix` (bug fix), `docs` (documentation), `refactor` (code restructure), `test` (add tests), `chore` (maintenance)
+   - Subject: Clear, imperative mood ("add feature" not "added feature"), max 72 chars
+   - Body (optional): Bullet points with details of what changed, why it matters
+   - Example:
+     ```
+     feat(auth): implement user authentication with JWT
+     
+     - Added login/logout endpoints with session management
+     - Implemented password hashing with bcrypt
+     - Created JWT token generation and validation
+     - Added user session middleware for protected routes
+     ```
+4. **Commit**: Execute `git commit -m "<message>"`
+5. **Confirm**: Show the user what was committed and ask if they want to push
+
+Example commit message patterns:
+- `feat(family): add household role-based access control`
+- `fix(relationships): correct reciprocal relationship creation logic`
+- `refactor(db): migrate to SQLAlchemy 2.0 syntax`
+- `docs(readme): add setup instructions for Docker`
+- `chore(deps): update Flask to 3.1.0`
 
 Primary stack and conventions (confirmed)
 - Language: Python

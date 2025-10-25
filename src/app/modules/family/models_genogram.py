@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, Date, DateTime, Boolean, Integer, Enum as SQLEnum
+from sqlalchemy import ForeignKey, String, Text, Date, DateTime, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
-from ...database import Base
+from ...db import Base
+
+if TYPE_CHECKING:
+    from ..users.models import User
 
 
 class RelationshipType(str, enum.Enum):

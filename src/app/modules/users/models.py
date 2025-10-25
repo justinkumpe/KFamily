@@ -12,6 +12,7 @@ from flask_login import UserMixin
 
 if TYPE_CHECKING:
     from ..family.models import HouseholdMember, UserRelationship
+    from ..family.models_genogram import Partnership, LifeEvent, MedicalCondition
     from ..timeline.models import TimelineEvent
 
 

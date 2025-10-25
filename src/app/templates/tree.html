@@ -1009,7 +1009,9 @@ const PERSON_LABEL_OFFSET = 55;
 
 // Load and render family tree
 async function loadFamilyTree() {
+  console.log('loadFamilyTree() called');
   try {
+    console.log('Fetching /api/tree...');
     const response = await fetch('/api/tree');
     console.log('API Response status:', response.status);
     console.log('Content-Type:', response.headers.get('content-type'));
@@ -1019,6 +1021,13 @@ async function loadFamilyTree() {
     
     if (!response.ok) {
       console.error('API Error:', data);
+      
+      // Handle authentication errors
+      if (response.status === 401 || (data.error && data.error.includes('authentication'))) {
+        window.location.href = '/login?next=/tree';
+        return;
+      }
+      
       throw new Error(data.error || `Failed to load family tree: ${response.status} ${response.statusText}`);
     }
     
@@ -1522,6 +1531,9 @@ function renderGenogram(data) {
 }
 
 // Load tree when page loads
-document.addEventListener('DOMContentLoaded', loadFamilyTree);
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded fired - about to call loadFamilyTree');
+  loadFamilyTree();
+});
 </script>
 {% endblock %}

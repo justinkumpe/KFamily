@@ -269,6 +269,15 @@ async function loadFamilyTree() {
       throw new Error(`Failed to load family tree: ${response.status} ${response.statusText}`);
     }
     
+    const contentType = response.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const responseText = await response.text();
+      console.error('Non-JSON response:', responseText);
+      throw new Error('Server returned non-JSON response. Check console for details.');
+    }
+    
     const data = await response.json();
     console.log('Family tree data:', data);
     renderGenogram(data);
@@ -279,6 +288,7 @@ async function loadFamilyTree() {
         <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
         <p class="mt-3">Failed to load family genogram. Please try again later.</p>
         <p class="text-muted mt-2" style="font-size: 0.9rem;">${error.message}</p>
+        <p class="text-muted mt-2" style="font-size: 0.8rem;">Check browser console (F12) for details.</p>
       </div>
     `;
   }

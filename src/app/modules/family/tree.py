@@ -261,38 +261,46 @@ def get_extended_family(user_id: int, sess):
 @api_login_required
 def get_family_tree():
     """Get the comprehensive family tree for the current logged-in user."""
-    from flask_login import current_user
-    sess = current_app.session
-    
-    # Get current user info
-    user = sess.get(User, current_user.id)
-    
-    # Get extended family
-    extended = get_extended_family(user.id, sess)
-    
-    tree_data = {
-        'root': {
-            'id': user.id,
-            'display_name': user.display_name,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'sex': user.sex,
-            'birthday': user.birthday.isoformat() if user.birthday else None,
-            'adoption_date': user.adoption_date.isoformat() if user.adoption_date else None,
-            'death_date': user.death_date.isoformat() if user.death_date else None,
-            'age': user.age,
-            'gravatar_url': user.gravatar_url(size=120),
-            'generation': 0,
-        },
-        'ancestors': get_ancestors(user.id, sess),
-        'descendants': get_descendants(user.id, sess),
-        'siblings': get_siblings(user.id, sess),
-        'spouse': get_spouse(user.id, sess),
-        'aunts_uncles': extended['aunts_uncles'],
-        'nieces_nephews': extended['nieces_nephews'],
-        'cousins': extended['cousins'],
-        'grandchildren': extended['grandchildren'],
-        'in_laws': extended['in_laws'],
-    }
-    
-    return jsonify(tree_data)
+    try:
+        from flask_login import current_user
+        sess = current_app.session
+        
+        # Get current user info
+        user = sess.get(User, current_user.id)
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Get extended family
+        extended = get_extended_family(user.id, sess)
+        
+        tree_data = {
+            'root': {
+                'id': user.id,
+                'display_name': user.display_name,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'sex': user.sex,
+                'birthday': user.birthday.isoformat() if user.birthday else None,
+                'adoption_date': user.adoption_date.isoformat() if user.adoption_date else None,
+                'death_date': user.death_date.isoformat() if user.death_date else None,
+                'age': user.age,
+                'gravatar_url': user.gravatar_url(size=120),
+                'generation': 0,
+            },
+            'ancestors': get_ancestors(user.id, sess),
+            'descendants': get_descendants(user.id, sess),
+            'siblings': get_siblings(user.id, sess),
+            'spouse': get_spouse(user.id, sess),
+            'aunts_uncles': extended['aunts_uncles'],
+            'nieces_nephews': extended['nieces_nephews'],
+            'cousins': extended['cousins'],
+            'grandchildren': extended['grandchildren'],
+            'in_laws': extended['in_laws'],
+        }
+        
+        return jsonify(tree_data)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e), "type": type(e).__name__}), 500

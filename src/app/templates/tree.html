@@ -343,13 +343,18 @@ function renderFamilyTree(data) {
   
   let html = '';
   
-  // Organize all people by generation
+  // Organize all people by generation including extended family
   const allPeople = [
     ...(data.ancestors || []),
+    ...(data.aunts_uncles || []),
     data.root,
     ...(data.spouse ? [{ ...data.spouse, generation: 0 }] : []),
     ...(data.siblings || []).map(s => ({ ...s, generation: 0 })),
-    ...(data.descendants || [])
+    ...(data.cousins || []).map(c => ({ ...c, generation: 0 })),
+    ...(data.in_laws || []),
+    ...(data.descendants || []),
+    ...(data.nieces_nephews || []),
+    ...(data.grandchildren || [])
   ];
   
   const byGeneration = organizeByGeneration(allPeople);
@@ -363,15 +368,15 @@ function renderFamilyTree(data) {
     let label = '';
     if (gen < 0) {
       const absGen = Math.abs(gen);
-      if (absGen === 1) label = 'Parents';
+      if (absGen === 1) label = 'Parents & Aunts/Uncles';
       else if (absGen === 2) label = 'Grandparents';
       else if (absGen === 3) label = 'Great-Grandparents';
       else if (absGen === 4) label = 'Great-Great-Grandparents';
       else label = `${absGen} Generations Up`;
     } else if (gen === 0) {
-      label = 'Current Generation';
+      label = 'Current Generation (Siblings, Cousins, Spouse)';
     } else if (gen > 0) {
-      if (gen === 1) label = 'Children';
+      if (gen === 1) label = 'Children & Nieces/Nephews';
       else if (gen === 2) label = 'Grandchildren';
       else if (gen === 3) label = 'Great-Grandchildren';
       else label = `${gen} Generations Down`;

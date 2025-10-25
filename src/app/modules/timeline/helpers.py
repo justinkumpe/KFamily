@@ -93,7 +93,7 @@ def _sync_event(
         select(TimelineEvent).where(
             TimelineEvent.user_id == user.id,
             TimelineEvent.event_type == event_type,
-            TimelineEvent.is_auto_generated == True
+            TimelineEvent.is_auto_generated.is_(True)
         )
     )
     
@@ -133,7 +133,7 @@ def _delete_auto_event(user_id: int, event_type: str, session) -> None:
         select(TimelineEvent).where(
             TimelineEvent.user_id == user_id,
             TimelineEvent.event_type == event_type,
-            TimelineEvent.is_auto_generated == True
+            TimelineEvent.is_auto_generated.is_(True)
         )
     )
     

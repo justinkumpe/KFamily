@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.utils.auth import api_login_required
 from app.modules.users.models import User
+from app.modules.family.models import UserRelationship
 from .models import TimelineEvent
 from .templates import get_all_templates, get_template, list_templates_for_module
 
@@ -96,16 +97,110 @@ def can_view_timeline_event(current_user: User, event: TimelineEvent) -> bool:
     return False
 
 
+def _get_family_timeline_events(user: User, session, module_filter=None, event_type_filter=None):
+    """
+    Get timeline events for family members that should appear on user's timeline.
+    
+    Includes:
+    - Birth/adoption/death dates of children, grandchildren, siblings, aunts, and uncles
+    - Death dates of parents and grandparents (that occurred after user's birth/adoption)
+    
+    Args:
+        user: The user whose timeline we're building
+        session: Database session
+        module_filter: Optional module filter
+        event_type_filter: Optional event type filter
+        
+    Returns:
+        List of TimelineEvent objects
+    """
+    family_events = []
+    user_birth_date = user.birthday or user.adoption_date
+    
+    # Get all relationships for this user
+    relationships = session.scalars(
+        select(UserRelationship).where(UserRelationship.user_id == user.id)
+    ).all()
+    
+    # Define which relationships to include
+    # Children: son, daughter, child
+    # Grandchildren: grandson, granddaughter, grandchild
+    # Siblings: brother, sister, sibling
+    # Aunts/Uncles: aunt, uncle
+    # Parents: father, mother, parent, adoptive-father, adoptive-mother
+    # Grandparents: grandfather, grandmother, grandparent
+    descendant_types = {"son", "daughter", "child", "grandson", "granddaughter", "grandchild"}
+    sibling_types = {"brother", "sister", "sibling"}
+    aunt_uncle_types = {"aunt", "uncle"}
+    ancestor_types = {"father", "mother", "parent", "adoptive-father", "adoptive-mother", 
+                     "grandfather", "grandmother", "grandparent"}
+    
+    for rel in relationships:
+        related_user_id = rel.related_user_id
+        rel_type = rel.relationship_type
+        
+        # Build query for related user's events
+        query = select(TimelineEvent).where(
+            TimelineEvent.user_id == related_user_id,
+            TimelineEvent.is_auto_generated.is_(True)  # Only auto-generated life events
+        )
+        
+        # For descendants (children/grandchildren): include birth, adoption, and death
+        if rel_type in descendant_types:
+            query = query.where(
+                TimelineEvent.event_type.in_(["birth", "adoption", "death"])
+            )
+        
+        # For siblings: include birth, adoption, and death
+        elif rel_type in sibling_types:
+            query = query.where(
+                TimelineEvent.event_type.in_(["birth", "adoption", "death"])
+            )
+        
+        # For aunts/uncles: include birth, adoption, and death
+        elif rel_type in aunt_uncle_types:
+            query = query.where(
+                TimelineEvent.event_type.in_(["birth", "adoption", "death"])
+            )
+        
+        # For ancestors (parents/grandparents): only include death dates after user's birth
+        elif rel_type in ancestor_types:
+            query = query.where(TimelineEvent.event_type == "death")
+            if user_birth_date:
+                query = query.where(TimelineEvent.event_date >= user_birth_date)
+        else:
+            # Skip other relationship types
+            continue
+        
+        # Apply filters if provided
+        if module_filter:
+            query = query.where(TimelineEvent.module_name == module_filter)
+        
+        if event_type_filter:
+            query = query.where(TimelineEvent.event_type == event_type_filter)
+        
+        # Add matching events
+        events = session.scalars(query).all()
+        family_events.extend(events)
+    
+    return family_events
+
+
 @timeline_bp.get("/users/<int:user_id>")
 @api_login_required
 def get_user_timeline(user_id: int):
     """
     Get timeline events for a specific user.
+    Includes:
+    - User's own events
+    - Birth/adoption/death dates of children, grandchildren, siblings, aunts, and uncles
+    - Death dates of parents and grandparents (that occurred after user's birth/adoption)
     
     Query params:
         - module: Filter by module name
         - event_type: Filter by event type
         - limit: Maximum number of events to return
+        - include_family: Include family events (default: true)
     """
     from flask_login import current_user
     sess = current_app.session
@@ -119,7 +214,7 @@ def get_user_timeline(user_id: int):
     if not current_user.can_view_user(user_id):
         return jsonify({"error": "You do not have permission to view this user's timeline"}), 403
     
-    # Build query
+    # Build base query for user's own events
     query = select(TimelineEvent).where(TimelineEvent.user_id == user_id)
     
     # Apply filters
@@ -131,15 +226,21 @@ def get_user_timeline(user_id: int):
     if event_type_filter:
         query = query.where(TimelineEvent.event_type == event_type_filter)
     
-    # Order by event date descending (newest first)
-    query = query.order_by(TimelineEvent.event_date.desc())
+    events = list(sess.scalars(query).all())
     
-    # Apply limit
+    # Add family events if not disabled
+    include_family = request.args.get("include_family", "true").lower() != "false"
+    if include_family:
+        family_events = _get_family_timeline_events(user, sess, module_filter, event_type_filter)
+        events.extend(family_events)
+    
+    # Sort all events by date descending (newest first)
+    events.sort(key=lambda e: e.event_date, reverse=True)
+    
+    # Apply limit after combining all events
     limit = request.args.get("limit", type=int)
     if limit:
-        query = query.limit(limit)
-    
-    events = sess.scalars(query).all()
+        events = events[:limit]
     
     # Filter by visibility permissions
     visible_events = [

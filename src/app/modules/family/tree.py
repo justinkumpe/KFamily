@@ -191,15 +191,84 @@ def get_spouse(user_id: int, sess):
     return None
 
 
+def get_extended_family(user_id: int, sess):
+    """
+    Get extended family members (aunts, uncles, nieces, nephews, cousins, etc.).
+    
+    Returns a dictionary with categorized extended family members.
+    """
+    extended = {
+        'aunts_uncles': [],
+        'nieces_nephews': [],
+        'cousins': [],
+        'grandchildren': [],
+        'in_laws': [],
+    }
+    
+    # Get all relationships
+    all_rels = sess.scalars(
+        select(UserRelationship).where(UserRelationship.user_id == user_id)
+    ).all()
+    
+    for rel in all_rels:
+        related_user = sess.get(User, rel.related_user_id)
+        if not related_user:
+            continue
+        
+        user_data = {
+            'id': related_user.id,
+            'display_name': related_user.display_name,
+            'first_name': related_user.first_name,
+            'last_name': related_user.last_name,
+            'sex': related_user.sex,
+            'birthday': related_user.birthday.isoformat() if related_user.birthday else None,
+            'adoption_date': related_user.adoption_date.isoformat() if related_user.adoption_date else None,
+            'death_date': related_user.death_date.isoformat() if related_user.death_date else None,
+            'age': related_user.age,
+            'gravatar_url': related_user.gravatar_url(size=120),
+            'relationship_type': rel.relationship_type,
+        }
+        
+        # Categorize by relationship type
+        if rel.relationship_type in ['aunt', 'uncle']:
+            user_data['generation'] = -1
+            extended['aunts_uncles'].append(user_data)
+        elif rel.relationship_type in ['niece', 'nephew']:
+            user_data['generation'] = 1
+            extended['nieces_nephews'].append(user_data)
+        elif rel.relationship_type == 'cousin':
+            user_data['generation'] = 0
+            extended['cousins'].append(user_data)
+        elif rel.relationship_type in ['grandson', 'granddaughter', 'grandchild']:
+            user_data['generation'] = 2
+            extended['grandchildren'].append(user_data)
+        elif rel.relationship_type in ['son-in-law', 'daughter-in-law', 'child-in-law',
+                                       'father-in-law', 'mother-in-law', 'parent-in-law',
+                                       'brother-in-law', 'sister-in-law', 'sibling-in-law']:
+            # Determine generation based on in-law type
+            if 'father' in rel.relationship_type or 'mother' in rel.relationship_type or 'parent' in rel.relationship_type:
+                user_data['generation'] = -1
+            elif 'son' in rel.relationship_type or 'daughter' in rel.relationship_type or 'child' in rel.relationship_type:
+                user_data['generation'] = 1
+            else:
+                user_data['generation'] = 0
+            extended['in_laws'].append(user_data)
+    
+    return extended
+
+
 @tree_bp.get("")
 @api_login_required
 def get_family_tree():
-    """Get the family tree for the current logged-in user."""
+    """Get the comprehensive family tree for the current logged-in user."""
     from flask_login import current_user
     sess = current_app.session
     
     # Get current user info
     user = sess.get(User, current_user.id)
+    
+    # Get extended family
+    extended = get_extended_family(user.id, sess)
     
     tree_data = {
         'root': {
@@ -219,6 +288,11 @@ def get_family_tree():
         'descendants': get_descendants(user.id, sess),
         'siblings': get_siblings(user.id, sess),
         'spouse': get_spouse(user.id, sess),
+        'aunts_uncles': extended['aunts_uncles'],
+        'nieces_nephews': extended['nieces_nephews'],
+        'cousins': extended['cousins'],
+        'grandchildren': extended['grandchildren'],
+        'in_laws': extended['in_laws'],
     }
     
     return jsonify(tree_data)

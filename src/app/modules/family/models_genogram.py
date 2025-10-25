@@ -93,55 +93,6 @@ class Partnership(Base):
     person2: Mapped["User"] = relationship("User", foreign_keys=[person2_id], back_populates="partnerships_as_person2")
 
 
-class Household(Base):
-    """
-    Represents a household/family unit - people living together.
-    """
-    __tablename__ = "households"
-    
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)  # e.g., "The Kumpe Household"
-    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    
-    # Dates
-    established_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    dissolved_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
-    # Metadata
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship to members
-    members: Mapped[list["HouseholdMember"]] = relationship("HouseholdMember", back_populates="household")
-
-
-class HouseholdMember(Base):
-    """
-    Links a person to a household with dates.
-    """
-    __tablename__ = "household_members"
-    
-    id: Mapped[int] = mapped_column(primary_key=True)
-    household_id: Mapped[int] = mapped_column(ForeignKey("households.id"), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    
-    # When they lived there
-    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # NULL = current
-    
-    # Role in household
-    is_head_of_household: Mapped[bool] = mapped_column(Boolean, default=False)
-    
-    # Metadata
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    household: Mapped["Household"] = relationship("Household", back_populates="members")
-    user: Mapped["User"] = relationship("User", back_populates="household_memberships")
-
-
 class LifeEventType(str, enum.Enum):
     """Types of life events for genogram."""
     # Already covered by user fields

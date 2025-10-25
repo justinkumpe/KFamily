@@ -47,38 +47,8 @@ def upgrade():
         op.create_index(op.f('ix_partnerships_person1_id'), 'partnerships', ['person1_id'], unique=False)
         op.create_index(op.f('ix_partnerships_person2_id'), 'partnerships', ['person2_id'], unique=False)
 
-    # Create households table
-    if 'households' not in existing_tables:
-        op.create_table(
-            'households',
-            sa.Column('id', sa.Integer(), nullable=False),
-            sa.Column('name', sa.String(length=255), nullable=False),
-            sa.Column('address', sa.String(length=500), nullable=True),
-            sa.Column('established_date', sa.Date(), nullable=True),
-            sa.Column('dissolved_date', sa.Date(), nullable=True),
-            sa.Column('notes', sa.Text(), nullable=True),
-            sa.Column('created_at', sa.DateTime(), nullable=False),
-            sa.Column('updated_at', sa.DateTime(), nullable=False),
-            sa.PrimaryKeyConstraint('id')
-        )
-
-    # Create household_members table
-    if 'household_members' not in existing_tables:
-        op.create_table(
-            'household_members',
-            sa.Column('id', sa.Integer(), nullable=False),
-            sa.Column('household_id', sa.Integer(), nullable=False),
-            sa.Column('user_id', sa.Integer(), nullable=False),
-            sa.Column('start_date', sa.Date(), nullable=True),
-            sa.Column('end_date', sa.Date(), nullable=True),
-            sa.Column('is_head_of_household', sa.Boolean(), nullable=False, default=False),
-            sa.Column('created_at', sa.DateTime(), nullable=False),
-            sa.ForeignKeyConstraint(['household_id'], ['households.id'], ),
-            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-            sa.PrimaryKeyConstraint('id')
-        )
-        op.create_index(op.f('ix_household_members_household_id'), 'household_members', ['household_id'], unique=False)
-        op.create_index(op.f('ix_household_members_user_id'), 'household_members', ['user_id'], unique=False)
+    # Note: households and household_members tables already exist from previous migrations
+    # and are defined in models.py, so we don't create them here.
 
     # Create life_events table
     if 'life_events' not in existing_tables:
@@ -146,11 +116,7 @@ def downgrade():
     op.drop_index(op.f('ix_life_events_user_id'), table_name='life_events')
     op.drop_table('life_events')
     
-    op.drop_index(op.f('ix_household_members_user_id'), table_name='household_members')
-    op.drop_index(op.f('ix_household_members_household_id'), table_name='household_members')
-    op.drop_table('household_members')
-    
-    op.drop_table('households')
+    # Note: household_members and households tables are not dropped as they existed before this migration
     
     op.drop_index(op.f('ix_partnerships_person2_id'), table_name='partnerships')
     op.drop_index(op.f('ix_partnerships_person1_id'), table_name='partnerships')

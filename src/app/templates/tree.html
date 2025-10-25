@@ -1425,6 +1425,7 @@ function renderGenogram(data) {
         
         // Draw children from this partnership
         const children = childrenOfPartnership[partnershipKey];
+        console.log(`Partnership ${partnershipKey}: children =`, children);
         if (children && children.length > 0) {
           const midX = (pos1.x + pos2.x) / 2;
           const parentY = pos1.y;
@@ -1437,6 +1438,8 @@ function renderGenogram(data) {
             }))
             .filter(c => c.pos)
             .sort((a, b) => a.pos.x - b.pos.x);
+          
+          console.log(`Child positions for partnership ${partnershipKey}:`, childPositions);
           
           if (childPositions.length > 0) {
             // Calculate Y position for sibship line (halfway between generations)

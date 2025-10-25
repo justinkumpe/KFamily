@@ -1393,10 +1393,12 @@ function renderGenogram(data) {
   // Group children by their parents' partnership
   Object.keys(parentsOf).forEach(childId => {
     const parents = parentsOf[childId];
-    console.log(`Child ${childId} has ${parents.length} parents:`, parents);
-    if (parents.length === 2) {
+    // Deduplicate parents array (relationships might be stored bidirectionally)
+    const uniqueParents = [...new Set(parents)];
+    console.log(`Child ${childId} has ${uniqueParents.length} unique parents:`, uniqueParents);
+    if (uniqueParents.length === 2) {
       // Child has two parents - check if there's a partnership
-      const key = `${parents[0]}-${parents[1]}`;
+      const key = `${uniqueParents[0]}-${uniqueParents[1]}`;
       console.log(`Checking for partnership key: ${key}`);
       console.log(`Partnership exists:`, partnershipMap[key]);
       if (partnershipMap[key]) {

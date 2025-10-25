@@ -1371,6 +1371,40 @@ function renderGenogram(data) {
   svg.setAttribute('height', svgHeight);
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
   
+  // Build partnership map for identifying children's parents
+  const partnershipMap = {}; // Maps "personId1-personId2" to partnership data
+  const childrenOfPartnership = {}; // Maps partnership key to array of children
+  
+  if (data.partnerships) {
+    data.partnerships.forEach(partnership => {
+      const key1 = `${partnership.person1_id}-${partnership.person2_id}`;
+      const key2 = `${partnership.person2_id}-${partnership.person1_id}`;
+      partnershipMap[key1] = partnership;
+      partnershipMap[key2] = partnership;
+    });
+  }
+  
+  // Build parent-child relationships and identify children of each partnership
+  const parentsOf = {}; // child_id -> [parent_ids]
+  data.relationships.forEach(rel => {
+    const [parentId, childId] = rel;
+    if (!parentsOf[childId]) parentsOf[childId] = [];
+    parentsOf[childId].push(parentId);
+  });
+  
+  // Group children by their parents' partnership
+  Object.keys(parentsOf).forEach(childId => {
+    const parents = parentsOf[childId];
+    if (parents.length === 2) {
+      // Child has two parents - check if there's a partnership
+      const key = `${parents[0]}-${parents[1]}`;
+      if (partnershipMap[key]) {
+        if (!childrenOfPartnership[key]) childrenOfPartnership[key] = [];
+        childrenOfPartnership[key].push(parseInt(childId));
+      }
+    }
+  });
+  
   // Draw partnership lines first
   if (data.partnerships) {
     data.partnerships.forEach(partnership => {
@@ -1379,18 +1413,103 @@ function renderGenogram(data) {
       if (pos1 && pos2 && pos1.y === pos2.y) { // Only if they're on same generation
         const x1 = pos1.x + SYMBOL_SIZE/2;
         const x2 = pos2.x - SYMBOL_SIZE/2;
+        const partnershipKey = `${partnership.person1_id}-${partnership.person2_id}`;
+        
         drawPartnershipLine(svg, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
+        
+        // Draw children from this partnership
+        const children = childrenOfPartnership[partnershipKey];
+        if (children && children.length > 0) {
+          const midX = (pos1.x + pos2.x) / 2;
+          const parentY = pos1.y;
+          
+          // Sort children by their X position for proper sibship line
+          const childPositions = children
+            .map(childId => ({
+              id: childId,
+              pos: positionMap[childId]
+            }))
+            .filter(c => c.pos)
+            .sort((a, b) => a.pos.x - b.pos.x);
+          
+          if (childPositions.length > 0) {
+            // Calculate Y position for sibship line (halfway between generations)
+            const firstChildY = childPositions[0].pos.y;
+            const sibshipY = parentY + (firstChildY - parentY) / 2;
+            
+            // Draw vertical line from partnership to sibship line
+            const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line1.setAttribute('x1', midX);
+            line1.setAttribute('y1', parentY);
+            line1.setAttribute('x2', midX);
+            line1.setAttribute('y2', sibshipY);
+            line1.setAttribute('class', 'parent-child-line');
+            svg.insertBefore(line1, svg.firstChild);
+            
+            if (childPositions.length === 1) {
+              // Single child - direct line down
+              const childPos = childPositions[0].pos;
+              const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              line2.setAttribute('x1', midX);
+              line2.setAttribute('y1', sibshipY);
+              line2.setAttribute('x2', childPos.x);
+              line2.setAttribute('y2', childPos.y - SYMBOL_SIZE/2);
+              line2.setAttribute('class', 'parent-child-line');
+              svg.insertBefore(line2, svg.firstChild);
+            } else {
+              // Multiple children - draw sibship line
+              const leftmostX = childPositions[0].pos.x;
+              const rightmostX = childPositions[childPositions.length - 1].pos.x;
+              
+              // Horizontal sibship line
+              const sibLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              sibLine.setAttribute('x1', leftmostX);
+              sibLine.setAttribute('y1', sibshipY);
+              sibLine.setAttribute('x2', rightmostX);
+              sibLine.setAttribute('y2', sibshipY);
+              sibLine.setAttribute('class', 'parent-child-line');
+              svg.insertBefore(sibLine, svg.firstChild);
+              
+              // Vertical lines from sibship line to each child
+              childPositions.forEach(child => {
+                const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', child.pos.x);
+                vLine.setAttribute('y1', sibshipY);
+                vLine.setAttribute('x2', child.pos.x);
+                vLine.setAttribute('y2', child.pos.y - SYMBOL_SIZE/2);
+                vLine.setAttribute('class', 'parent-child-line');
+                svg.insertBefore(vLine, svg.firstChild);
+              });
+            }
+          }
+        }
       }
     });
   }
   
-  // Draw parent-child connection lines
+  // Draw parent-child lines for children NOT part of a partnership
   data.relationships.forEach(rel => {
     const [parentId, childId] = rel;
-    const parentPos = positionMap[parentId];
-    const childPos = positionMap[childId];
-    if (parentPos && childPos) {
-      drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+    const parents = parentsOf[childId];
+    
+    // Only draw if this child is NOT part of a partnership (single parent or no partnership defined)
+    if (!parents || parents.length === 1) {
+      const parentPos = positionMap[parentId];
+      const childPos = positionMap[childId];
+      if (parentPos && childPos) {
+        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+      }
+    } else if (parents.length === 2) {
+      // Check if there's NO partnership between the parents
+      const key = `${parents[0]}-${parents[1]}`;
+      if (!partnershipMap[key]) {
+        // No partnership defined - draw traditional parent-child lines
+        const parentPos = positionMap[parentId];
+        const childPos = positionMap[childId];
+        if (parentPos && childPos) {
+          drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+        }
+      }
     }
   });
   

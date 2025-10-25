@@ -83,6 +83,31 @@ class User(Base, UserMixin):
         cascade="all, delete-orphan",
         order_by="TimelineEvent.event_date.desc()",
     )
+    
+    # Genogram-specific relationships
+    partnerships_as_person1: Mapped[List["Partnership"]] = relationship(
+        "Partnership",
+        foreign_keys="Partnership.person1_id",
+        back_populates="person1",
+        cascade="all, delete-orphan",
+    )
+    partnerships_as_person2: Mapped[List["Partnership"]] = relationship(
+        "Partnership",
+        foreign_keys="Partnership.person2_id",
+        back_populates="person2",
+        cascade="all, delete-orphan",
+    )
+    life_events: Mapped[List["LifeEvent"]] = relationship(
+        "LifeEvent",
+        foreign_keys="LifeEvent.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    medical_conditions: Mapped[List["MedicalCondition"]] = relationship(
+        "MedicalCondition",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     # password helpers
     def set_password(self, password: str) -> None:

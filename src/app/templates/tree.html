@@ -397,6 +397,101 @@ function drawMarriageLine(svg, x1, y1, x2, y2) {
   drawLine(svg, x1, y1, x2, y2, 'marriage-line');
 }
 
+// Draw partnership line based on relationship type
+function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  
+  // Style based on relationship type
+  if (partnershipType === 'married') {
+    line.setAttribute('class', 'partnership-married');
+    line.setAttribute('stroke', '#dc3545');
+    line.setAttribute('stroke-width', '2');
+  } else if (partnershipType === 'divorced') {
+    // Solid line with two slashes
+    line.setAttribute('class', 'partnership-divorced');
+    line.setAttribute('stroke', '#6c757d');
+    line.setAttribute('stroke-width', '2');
+    svg.insertBefore(line, svg.firstChild);
+    
+    // Add two slash marks
+    const midX = (x1 + x2) / 2;
+    const slash1X = midX - 8;
+    const slash2X = midX + 8;
+    const slashY1 = y1 - 8;
+    const slashY2 = y1 + 8;
+    
+    const slash1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    slash1.setAttribute('x1', slash1X);
+    slash1.setAttribute('y1', slashY1);
+    slash1.setAttribute('x2', slash1X);
+    slash1.setAttribute('y2', slashY2);
+    slash1.setAttribute('stroke', '#6c757d');
+    slash1.setAttribute('stroke-width', '3');
+    svg.insertBefore(slash1, svg.firstChild);
+    
+    const slash2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    slash2.setAttribute('x1', slash2X);
+    slash2.setAttribute('y1', slashY1);
+    slash2.setAttribute('x2', slash2X);
+    slash2.setAttribute('y2', slashY2);
+    slash2.setAttribute('stroke', '#6c757d');
+    slash2.setAttribute('stroke-width', '3');
+    svg.insertBefore(slash2, svg.firstChild);
+    return;
+  } else if (partnershipType === 'separated') {
+    // Solid line with one slash
+    line.setAttribute('class', 'partnership-separated');
+    line.setAttribute('stroke', '#6c757d');
+    line.setAttribute('stroke-width', '2');
+    svg.insertBefore(line, svg.firstChild);
+    
+    const midX = (x1 + x2) / 2;
+    const slash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    slash.setAttribute('x1', midX);
+    slash.setAttribute('y1', y1 - 8);
+    slash.setAttribute('x2', midX);
+    slash.setAttribute('y2', y1 + 8);
+    slash.setAttribute('stroke', '#6c757d');
+    slash.setAttribute('stroke-width', '3');
+    svg.insertBefore(slash, svg.firstChild);
+    return;
+  } else if (partnershipType === 'common_law') {
+    // Dashed line
+    line.setAttribute('class', 'partnership-common-law');
+    line.setAttribute('stroke', '#dc3545');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5,5');
+  } else if (partnershipType === 'engaged') {
+    // Dashed line with "E"
+    line.setAttribute('class', 'partnership-engaged');
+    line.setAttribute('stroke', '#0dcaf0');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5,5');
+    svg.insertBefore(line, svg.firstChild);
+    
+    const midX = (x1 + x2) / 2;
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', midX);
+    text.setAttribute('y', y1 - 10);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '12');
+    text.setAttribute('fill', '#0dcaf0');
+    text.textContent = 'E';
+    svg.appendChild(text);
+    return;
+  } else {
+    // Default: simple line
+    line.setAttribute('stroke', '#999');
+    line.setAttribute('stroke-width', '2');
+  }
+  
+  svg.insertBefore(line, svg.firstChild);
+}
+
 // Draw parent-child connection
 function drawParentChildLine(svg, parentX, parentY, childX, childY) {
   // Vertical line from parent down
@@ -508,6 +603,19 @@ function renderGenogram(data) {
   svg.setAttribute('width', svgWidth);
   svg.setAttribute('height', svgHeight);
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+  
+  // Draw partnership lines first
+  if (data.partnerships) {
+    data.partnerships.forEach(partnership => {
+      const pos1 = positionMap[partnership.person1_id];
+      const pos2 = positionMap[partnership.person2_id];
+      if (pos1 && pos2 && pos1.y === pos2.y) { // Only if they're on same generation
+        const x1 = pos1.x + SYMBOL_SIZE/2;
+        const x2 = pos2.x - SYMBOL_SIZE/2;
+        drawPartnershipLine(svg, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
+      }
+    });
+  }
   
   // Draw parent-child connection lines
   data.relationships.forEach(rel => {

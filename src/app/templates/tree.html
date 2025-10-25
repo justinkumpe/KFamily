@@ -15,130 +15,121 @@
     border-radius: 0.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     padding: 2rem;
-    overflow-x: auto;
+    overflow: auto;
     min-height: 600px;
-  }
-  
-  .tree-generation {
-    margin-bottom: 3rem;
-    text-align: center;
-  }
-  
-  .tree-generation-label {
-    font-size: 0.9rem;
-    color: #6c757d;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 1.5rem;
-  }
-  
-  .tree-row {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  
-  .tree-node {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 1rem 1.5rem;
-    border-radius: 0.75rem;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    transition: all 0.3s ease;
-    cursor: pointer;
-    min-width: 180px;
-    text-align: center;
     position: relative;
   }
   
-  .tree-node:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-  }
-  
-  .tree-node.current-user {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
-    border: 3px solid #fff;
-    transform: scale(1.1);
-  }
-  
-  .tree-node.current-user:hover {
-    transform: scale(1.15) translateY(-4px);
-  }
-  
-  .tree-node.spouse {
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-  }
-  
-  .tree-node-name {
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 0.25rem;
-  }
-  
-  .tree-node-relation {
-    font-size: 0.85rem;
-    opacity: 0.9;
-    font-style: italic;
-  }
-  
-  .tree-node-dates {
-    font-size: 0.75rem;
-    opacity: 0.9;
-    margin-top: 0.5rem;
-    border-top: 1px solid rgba(255,255,255,0.3);
-    padding-top: 0.5rem;
-    line-height: 1.4;
-  }
-  
-  .tree-node-age {
-    font-size: 0.7rem;
-    opacity: 0.85;
-    margin-top: 0.25rem;
-    font-style: italic;
-  }
-  
-  .tree-node-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.8);
-    margin-bottom: 0.75rem;
-    object-fit: cover;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  }
-  
-  .tree-node-avatar-wrapper {
-    position: relative;
-    display: inline-block;
-  }
-  
-  .tree-node-avatar-wrapper.deceased::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
+  /* SVG Canvas for genogram */
+  #genogram-svg {
     width: 100%;
-    height: 100%;
-    background: linear-gradient(to bottom right, 
-                                transparent 0%, 
-                                transparent calc(50% - 2px), 
-                                rgba(220, 53, 69, 0.9) calc(50% - 2px), 
-                                rgba(220, 53, 69, 0.9) calc(50% + 2px), 
-                                transparent calc(50% + 2px), 
-                                transparent 100%);
-    border-radius: 50%;
+    min-height: 800px;
+  }
+  /* SVG Canvas for genogram */
+  #genogram-svg {
+    width: 100%;
+    min-height: 800px;
+  }
+  
+  /* Genogram symbols */
+  .genogram-person {
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .genogram-person:hover .person-shape {
+    stroke-width: 3;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  }
+  
+  /* Male symbol - square */
+  .male-symbol {
+    fill: #4A90E2;
+    stroke: #2E5C8A;
+    stroke-width: 2;
+  }
+  
+  /* Female symbol - circle */
+  .female-symbol {
+    fill: #E94B8B;
+    stroke: #B83567;
+    stroke-width: 2;
+  }
+  
+  /* Unknown/Other gender - diamond */
+  .unknown-symbol {
+    fill: #9B59B6;
+    stroke: #6C3483;
+    stroke-width: 2;
+  }
+  
+  /* Current user - thicker border */
+  .current-user .person-shape {
+    stroke-width: 4;
+    stroke: #F39C12;
+    filter: drop-shadow(0 0 8px rgba(243, 156, 18, 0.6));
+  }
+  
+  /* Deceased - X through symbol */
+  .deceased-marker {
+    stroke: #C0392B;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  
+  /* Relationship lines */
+  .parent-child-line {
+    stroke: #34495E;
+    stroke-width: 2;
+    fill: none;
+  }
+  
+  .marriage-line {
+    stroke: #E74C3C;
+    stroke-width: 3;
+    fill: none;
+  }
+  
+  .sibling-line {
+    stroke: #34495E;
+    stroke-width: 2;
+    fill: none;
+  }
+  
+  /* Person labels */
+  .person-name {
+    font-size: 12px;
+    font-weight: 600;
+    fill: #2C3E50;
+    text-anchor: middle;
     pointer-events: none;
   }
   
-  .tree-node-icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+  .person-age {
+    font-size: 10px;
+    fill: #7F8C8D;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  
+  .person-dates {
+    font-size: 9px;
+    fill: #95A5A6;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  
+  .relationship-label {
+    font-size: 10px;
+    font-style: italic;
+    fill: #7F8C8D;
+    text-anchor: middle;
+  }
+  .relationship-label {
+    font-size: 10px;
+    font-style: italic;
+    fill: #7F8C8D;
+    text-anchor: middle;
   }
   
   .loading-spinner {
@@ -152,20 +143,6 @@
     color: #6c757d;
   }
   
-  .generation-connector {
-    height: 30px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  .generation-connector::before {
-    content: '';
-    width: 2px;
-    height: 100%;
-    background: linear-gradient(180deg, rgba(102,126,234,0.3) 0%, rgba(102,126,234,0.1) 100%);
-  }
-  
   .legend {
     display: flex;
     justify-content: center;
@@ -174,6 +151,7 @@
     padding: 1rem;
     background: #f8f9fa;
     border-radius: 0.5rem;
+    flex-wrap: wrap;
   }
   
   .legend-item {
@@ -182,33 +160,61 @@
     gap: 0.5rem;
   }
   
-  .legend-box {
+  .legend-symbol {
     width: 30px;
     height: 30px;
-    border-radius: 0.25rem;
   }
   
-  .legend-box.current {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    border: 2px solid #fff;
+  .legend-symbol.male {
+    background: #4A90E2;
+    border: 2px solid #2E5C8A;
   }
   
-  .legend-box.ancestor {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  .legend-symbol.female {
+    background: #E94B8B;
+    border: 2px solid #B83567;
+    border-radius: 50%;
   }
   
-  .legend-box.descendant {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  .legend-symbol.deceased {
+    background: white;
+    border: 2px solid #34495E;
+    position: relative;
   }
   
-  .legend-box.spouse {
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  .legend-symbol.deceased::before,
+  .legend-symbol.deceased::after {
+    content: '';
+    position: absolute;
+    background: #C0392B;
+    width: 2px;
+    height: 35px;
+    top: 50%;
+    left: 50%;
+  }
+  
+  .legend-symbol.deceased::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  
+  .legend-symbol.deceased::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+  
+  .legend-line {
+    width: 40px;
+    height: 3px;
+    background: #34495E;
+  }
+  
+  .legend-line.marriage {
+    background: #E74C3C;
   }
 </style>
 
 <div class="page-header fade-in">
-  <h1 class="mb-0"><i class="bi bi-diagram-3"></i> Family Tree</h1>
-  <p class="mb-0 mt-2">Explore your family connections and ancestry</p>
+  <h1 class="mb-0"><i class="bi bi-diagram-3"></i> Family Genogram</h1>
+  <p class="mb-0 mt-2">Interactive multi-generational family diagram</p>
 </div>
 
 <div id="tree-container">
@@ -216,30 +222,41 @@
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
-    <p class="mt-3">Loading your family tree...</p>
+    <p class="mt-3">Loading your family genogram...</p>
   </div>
 </div>
 
 <div class="legend">
   <div class="legend-item">
-    <div class="legend-box current"></div>
-    <span>You</span>
+    <div class="legend-symbol male"></div>
+    <span>Male</span>
   </div>
   <div class="legend-item">
-    <div class="legend-box ancestor"></div>
-    <span>Ancestors</span>
+    <div class="legend-symbol female"></div>
+    <span>Female</span>
   </div>
   <div class="legend-item">
-    <div class="legend-box descendant"></div>
-    <span>Descendants</span>
+    <div class="legend-symbol deceased"></div>
+    <span>Deceased</span>
   </div>
   <div class="legend-item">
-    <div class="legend-box spouse"></div>
-    <span>Spouse</span>
+    <div class="legend-line marriage"></div>
+    <span>Marriage</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line"></div>
+    <span>Parent-Child</span>
   </div>
 </div>
 
 <script>
+<script>
+// Genogram constants
+const SYMBOL_SIZE = 40;
+const HORIZONTAL_SPACING = 180;
+const VERTICAL_SPACING = 150;
+const PERSON_LABEL_OFFSET = 55;
+
 // Load and render family tree
 async function loadFamilyTree() {
   try {
@@ -247,6 +264,423 @@ async function loadFamilyTree() {
     if (!response.ok) {
       throw new Error('Failed to load family tree');
     }
+    
+    const data = await response.json();
+    renderGenogram(data);
+  } catch (error) {
+    console.error('Error loading family tree:', error);
+    document.getElementById('tree-container').innerHTML = `
+      <div class="no-data">
+        <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
+        <p class="mt-3">Failed to load family genogram. Please try again later.</p>
+      </div>
+    `;
+  }
+}
+
+// Draw person symbol based on gender
+function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', `genogram-person ${isCurrent ? 'current-user' : ''}`);
+  g.setAttribute('data-id', person.id);
+  g.style.cursor = 'pointer';
+  g.onclick = () => window.location.href = `/users/${person.id}`;
+  
+  let shape;
+  
+  // Draw shape based on gender
+  if (person.sex === 'M') {
+    // Male - Square
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    shape.setAttribute('x', x - SYMBOL_SIZE/2);
+    shape.setAttribute('y', y - SYMBOL_SIZE/2);
+    shape.setAttribute('width', SYMBOL_SIZE);
+    shape.setAttribute('height', SYMBOL_SIZE);
+    shape.setAttribute('class', 'person-shape male-symbol');
+  } else if (person.sex === 'F') {
+    // Female - Circle
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    shape.setAttribute('cx', x);
+    shape.setAttribute('cy', y);
+    shape.setAttribute('r', SYMBOL_SIZE/2);
+    shape.setAttribute('class', 'person-shape female-symbol');
+  } else {
+    // Unknown/Other - Diamond
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    shape.setAttribute('x', x - SYMBOL_SIZE/2);
+    shape.setAttribute('y', y - SYMBOL_SIZE/2);
+    shape.setAttribute('width', SYMBOL_SIZE);
+    shape.setAttribute('height', SYMBOL_SIZE);
+    shape.setAttribute('transform', `rotate(45 ${x} ${y})`);
+    shape.setAttribute('class', 'person-shape unknown-symbol');
+  }
+  
+  g.appendChild(shape);
+  
+  // Add X if deceased
+  if (person.death_date) {
+    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line1.setAttribute('x1', x - SYMBOL_SIZE/2 + 5);
+    line1.setAttribute('y1', y - SYMBOL_SIZE/2 + 5);
+    line1.setAttribute('x2', x + SYMBOL_SIZE/2 - 5);
+    line1.setAttribute('y2', y + SYMBOL_SIZE/2 - 5);
+    line1.setAttribute('class', 'deceased-marker');
+    
+    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line2.setAttribute('x1', x + SYMBOL_SIZE/2 - 5);
+    line2.setAttribute('y1', y - SYMBOL_SIZE/2 + 5);
+    line2.setAttribute('x2', x - SYMBOL_SIZE/2 + 5);
+    line2.setAttribute('y2', y + SYMBOL_SIZE/2 - 5);
+    line2.setAttribute('class', 'deceased-marker');
+    
+    g.appendChild(line1);
+    g.appendChild(line2);
+  }
+  
+  // Add name label
+  const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  name.setAttribute('x', x);
+  name.setAttribute('y', y + PERSON_LABEL_OFFSET);
+  name.setAttribute('class', 'person-name');
+  name.textContent = person.first_name || person.display_name;
+  g.appendChild(name);
+  
+  // Add age if available
+  if (person.age !== null && person.age !== undefined) {
+    const age = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    age.setAttribute('x', x);
+    age.setAttribute('y', y + PERSON_LABEL_OFFSET + 14);
+    age.setAttribute('class', 'person-age');
+    age.textContent = person.death_date ? `(${person.age})` : `Age ${person.age}`;
+    g.appendChild(age);
+  }
+  
+  // Add birth year if available
+  if (person.birthday) {
+    const birthYear = new Date(person.birthday).getFullYear();
+    const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    dates.setAttribute('x', x);
+    dates.setAttribute('y', y + PERSON_LABEL_OFFSET + 26);
+    dates.setAttribute('class', 'person-dates');
+    dates.textContent = person.death_date ? 
+      `${birthYear} - ${new Date(person.death_date).getFullYear()}` : 
+      `b. ${birthYear}`;
+    g.appendChild(dates);
+  }
+  
+  svg.appendChild(g);
+  return { x, y, person };
+}
+
+// Draw line between two points
+function drawLine(svg, x1, y1, x2, y2, className) {
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  line.setAttribute('class', className);
+  svg.insertBefore(line, svg.firstChild); // Insert at beginning so lines are behind symbols
+  return line;
+}
+
+// Draw marriage line (horizontal line connecting spouses)
+function drawMarriageLine(svg, x1, y1, x2, y2) {
+  drawLine(svg, x1, y1, x2, y2, 'marriage-line');
+}
+
+// Draw parent-child connection
+function drawParentChildLine(svg, parentX, parentY, childX, childY) {
+  // Vertical line from parent down
+  const midY = parentY + VERTICAL_SPACING / 2;
+  drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line');
+  // Horizontal line to child's X position
+  drawLine(svg, parentX, midY, childX, midY, 'parent-child-line');
+  // Vertical line to child
+  drawLine(svg, childX, midY, childX, childY - SYMBOL_SIZE/2, 'parent-child-line');
+}
+
+// Render the genogram
+function renderGenogram(data) {
+  if (!data.root) {
+    document.getElementById('tree-container').innerHTML = `
+      <div class="no-data">
+        <i class="bi bi-info-circle" style="font-size: 3rem; color: #0dcaf0;"></i>
+        <p class="mt-3">No family data available yet. Start by adding family relationships!</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Create SVG
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('id', 'genogram-svg');
+  
+  // Organize people by generation
+  const generations = {};
+  const positionMap = {}; // Map person ID to {x, y}
+  
+  // Collect all people and organize by generation
+  function addPerson(person, generation) {
+    if (!generations[generation]) generations[generation] = [];
+    // Avoid duplicates
+    if (!generations[generation].find(p => p.id === person.id)) {
+      generations[generation].push({...person, generation});
+    }
+  }
+  
+  // Add root user
+  addPerson(data.root, 0);
+  
+  // Add spouse if exists
+  if (data.spouse) addPerson(data.spouse, 0);
+  
+  // Add siblings
+  (data.siblings || []).forEach(s => addPerson(s, 0));
+  
+  // Add cousins
+  (data.cousins || []).forEach(c => addPerson(c, 0));
+  
+  // Add parents and ancestors
+  function addAncestors(ancestors, baseGen) {
+    ancestors.forEach(ancestor => {
+      const gen = ancestor.generation || baseGen;
+      addPerson(ancestor, gen);
+      if (ancestor.parents) {
+        addAncestors(ancestor.parents, gen - 1);
+      }
+    });
+  }
+  if (data.ancestors) addAncestors(data.ancestors, -1);
+  
+  // Add aunts/uncles
+  (data.aunts_uncles || []).forEach(au => addPerson(au, -1));
+  
+  // Add children and descendants
+  function addDescendants(descendants, baseGen) {
+    descendants.forEach(descendant => {
+      const gen = descendant.generation || baseGen;
+      addPerson(descendant, gen);
+      if (descendant.children) {
+        addDescendants(descendant.children, gen + 1);
+      }
+    });
+  }
+  if (data.descendants) addDescendants(data.descendants, 1);
+  
+  // Add nieces/nephews
+  (data.nieces_nephews || []).forEach(nn => addPerson(nn, 1));
+  
+  // Add grandchildren
+  (data.grandchildren || []).forEach(gc => addPerson(gc, 2));
+  
+  // Add in-laws (categorized by generation already)
+  (data.in_laws || []).forEach(il => {
+    const gen = il.generation !== undefined ? il.generation : 0;
+    addPerson(il, gen);
+  });
+  
+  // Calculate positions
+  const genKeys = Object.keys(generations).map(Number).sort((a, b) => a - b);
+  const startY = 100;
+  let maxX = 0;
+  
+  genKeys.forEach((gen, genIndex) => {
+    const people = generations[gen];
+    const yPos = startY + (genIndex * VERTICAL_SPACING);
+    const totalWidth = people.length * HORIZONTAL_SPACING;
+    const startX = (1200 - totalWidth) / 2 + HORIZONTAL_SPACING / 2; // Center on canvas
+    
+    people.forEach((person, index) => {
+      const xPos = startX + (index * HORIZONTAL_SPACING);
+      positionMap[person.id] = { x: xPos, y: yPos };
+      if (xPos > maxX) maxX = xPos;
+    });
+  });
+  
+  // Set SVG dimensions
+  const svgWidth = Math.max(1200, maxX + 200);
+  const svgHeight = startY + (genKeys.length * VERTICAL_SPACING) + 100;
+  svg.setAttribute('width', svgWidth);
+  svg.setAttribute('height', svgHeight);
+  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+  
+  // Draw connections first (so they appear behind symbols)
+  // Draw marriage lines
+  if (data.spouse && positionMap[data.root.id] && positionMap[data.spouse.id]) {
+    const rootPos = positionMap[data.root.id];
+    const spousePos = positionMap[data.spouse.id];
+    drawMarriageLine(svg, rootPos.x + SYMBOL_SIZE/2, rootPos.y, spousePos.x - SYMBOL_SIZE/2, spousePos.y);
+  }
+  
+  // Draw parent-child lines
+  function drawDescendantLines(descendants) {
+    descendants.forEach(descendant => {
+      const parentPos = positionMap[data.root.id];
+      const childPos = positionMap[descendant.id];
+      if (parentPos && childPos) {
+        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+      }
+      if (descendant.children) {
+        drawDescendantLines(descendant.children);
+      }
+    });
+  }
+  if (data.descendants) drawDescendantLines(data.descendants);
+  
+  // Draw ancestor-child lines
+  if (data.ancestors) {
+    data.ancestors.forEach(ancestor => {
+      const parentPos = positionMap[ancestor.id];
+      const childPos = positionMap[data.root.id];
+      if (parentPos && childPos) {
+        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+      }
+    });
+  }
+  
+  // Draw all people
+  genKeys.forEach(gen => {
+    const people = generations[gen];
+    people.forEach(person => {
+      const pos = positionMap[person.id];
+      if (pos) {
+        drawPersonSymbol(svg, pos.x, pos.y, person, person.id === data.root.id);
+      }
+    });
+  });
+  
+  // Replace container content with SVG
+  document.getElementById('tree-container').innerHTML = '';
+  document.getElementById('tree-container').appendChild(svg);
+}
+
+// Load tree when page loads
+document.addEventListener('DOMContentLoaded', loadFamilyTree);
+</script>
+{% endblock %}
+
+// Draw person symbol based on gender
+function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', `genogram-person ${isCurrent ? 'current-user' : ''}`);
+  g.setAttribute('data-id', person.id);
+  g.style.cursor = 'pointer';
+  g.onclick = () => window.location.href = `/users/${person.id}`;
+  
+  let shape;
+  
+  // Draw shape based on gender
+  if (person.sex === 'M') {
+    // Male - Square
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    shape.setAttribute('x', x - SYMBOL_SIZE/2);
+    shape.setAttribute('y', y - SYMBOL_SIZE/2);
+    shape.setAttribute('width', SYMBOL_SIZE);
+    shape.setAttribute('height', SYMBOL_SIZE);
+    shape.setAttribute('class', 'person-shape male-symbol');
+  } else if (person.sex === 'F') {
+    // Female - Circle
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    shape.setAttribute('cx', x);
+    shape.setAttribute('cy', y);
+    shape.setAttribute('r', SYMBOL_SIZE/2);
+    shape.setAttribute('class', 'person-shape female-symbol');
+  } else {
+    // Unknown/Other - Diamond
+    shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    shape.setAttribute('x', x - SYMBOL_SIZE/2);
+    shape.setAttribute('y', y - SYMBOL_SIZE/2);
+    shape.setAttribute('width', SYMBOL_SIZE);
+    shape.setAttribute('height', SYMBOL_SIZE);
+    shape.setAttribute('transform', `rotate(45 ${x} ${y})`);
+    shape.setAttribute('class', 'person-shape unknown-symbol');
+  }
+  
+  g.appendChild(shape);
+  
+  // Add X if deceased
+  if (person.death_date) {
+    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line1.setAttribute('x1', x - SYMBOL_SIZE/2 + 5);
+    line1.setAttribute('y1', y - SYMBOL_SIZE/2 + 5);
+    line1.setAttribute('x2', x + SYMBOL_SIZE/2 - 5);
+    line1.setAttribute('y2', y + SYMBOL_SIZE/2 - 5);
+    line1.setAttribute('class', 'deceased-marker');
+    
+    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line2.setAttribute('x1', x + SYMBOL_SIZE/2 - 5);
+    line2.setAttribute('y1', y - SYMBOL_SIZE/2 + 5);
+    line2.setAttribute('x2', x - SYMBOL_SIZE/2 + 5);
+    line2.setAttribute('y2', y + SYMBOL_SIZE/2 - 5);
+    line2.setAttribute('class', 'deceased-marker');
+    
+    g.appendChild(line1);
+    g.appendChild(line2);
+  }
+  
+  // Add name label
+  const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  name.setAttribute('x', x);
+  name.setAttribute('y', y + PERSON_LABEL_OFFSET);
+  name.setAttribute('class', 'person-name');
+  name.textContent = person.first_name || person.display_name;
+  g.appendChild(name);
+  
+  // Add age if available
+  if (person.age !== null && person.age !== undefined) {
+    const age = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    age.setAttribute('x', x);
+    age.setAttribute('y', y + PERSON_LABEL_OFFSET + 14);
+    age.setAttribute('class', 'person-age');
+    age.textContent = person.death_date ? `(${person.age})` : `Age ${person.age}`;
+    g.appendChild(age);
+  }
+  
+  // Add birth year if available
+  if (person.birthday) {
+    const birthYear = new Date(person.birthday).getFullYear();
+    const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    dates.setAttribute('x', x);
+    dates.setAttribute('y', y + PERSON_LABEL_OFFSET + 26);
+    dates.setAttribute('class', 'person-dates');
+    dates.textContent = person.death_date ? 
+      `${birthYear} - ${new Date(person.death_date).getFullYear()}` : 
+      `b. ${birthYear}`;
+    g.appendChild(dates);
+  }
+  
+  svg.appendChild(g);
+  return { x, y, person };
+}
+
+// Draw line between two points
+function drawLine(svg, x1, y1, x2, y2, className) {
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  line.setAttribute('class', className);
+  svg.insertBefore(line, svg.firstChild); // Insert at beginning so lines are behind symbols
+  return line;
+}
+
+// Draw marriage line (horizontal line connecting spouses)
+function drawMarriageLine(svg, x1, y1, x2, y2) {
+  drawLine(svg, x1, y1, x2, y2, 'marriage-line');
+}
+
+// Draw parent-child connection
+function drawParentChildLine(svg, parentX, parentY, childX, childY) {
+  // Vertical line from parent down
+  const midY = parentY + VERTICAL_SPACING / 2;
+  drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line');
+  // Horizontal line to child's X position
+  drawLine(svg, parentX, midY, childX, midY, 'parent-child-line');
+  // Vertical line to child
+  drawLine(svg, childX, midY, childX, childY - SYMBOL_SIZE/2, 'parent-child-line');
+}
     
     const data = await response.json();
     renderFamilyTree(data);

@@ -257,23 +257,36 @@ def get_extended_family(user_id: int, sess):
     return extended
 
 
+@tree_bp.get("/test")
+def test_endpoint():
+    """Simple test endpoint to verify blueprint is working."""
+    return jsonify({"status": "ok", "message": "Tree blueprint is working"})
+
+
 @tree_bp.get("")
 @api_login_required
 def get_family_tree():
     """Get the comprehensive family tree for the current logged-in user."""
     try:
+        print("=== get_family_tree called ===")
         from flask_login import current_user
+        print(f"Current user ID: {current_user.id}")
         sess = current_app.session
         
         # Get current user info
         user = sess.get(User, current_user.id)
+        print(f"User found: {user is not None}")
         
         if not user:
+            print("ERROR: User not found")
             return jsonify({"error": "User not found"}), 404
         
+        print("Getting extended family...")
         # Get extended family
         extended = get_extended_family(user.id, sess)
+        print(f"Extended family retrieved: {len(extended['aunts_uncles'])} aunts/uncles, {len(extended['nieces_nephews'])} nieces/nephews")
         
+        print("Building tree data...")
         tree_data = {
             'root': {
                 'id': user.id,
@@ -299,8 +312,12 @@ def get_family_tree():
             'in_laws': extended['in_laws'],
         }
         
+        print("Returning tree data as JSON...")
         return jsonify(tree_data)
     except Exception as e:
         import traceback
+        print(f"=== ERROR in get_family_tree ===")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
         traceback.print_exc()
         return jsonify({"error": str(e), "type": type(e).__name__}), 500

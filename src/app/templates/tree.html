@@ -261,11 +261,16 @@ const PERSON_LABEL_OFFSET = 55;
 async function loadFamilyTree() {
   try {
     const response = await fetch('/api/tree');
+    console.log('API Response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error('Failed to load family tree');
+      const errorText = await response.text();
+      console.error('API Error:', errorText);
+      throw new Error(`Failed to load family tree: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('Family tree data:', data);
     renderGenogram(data);
   } catch (error) {
     console.error('Error loading family tree:', error);
@@ -273,6 +278,7 @@ async function loadFamilyTree() {
       <div class="no-data">
         <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
         <p class="mt-3">Failed to load family genogram. Please try again later.</p>
+        <p class="text-muted mt-2" style="font-size: 0.9rem;">${error.message}</p>
       </div>
     `;
   }
@@ -402,6 +408,8 @@ function drawParentChildLine(svg, parentX, parentY, childX, childY) {
 
 // Render the genogram
 function renderGenogram(data) {
+  console.log('Starting renderGenogram with data:', data);
+  
   if (!data.root) {
     document.getElementById('tree-container').innerHTML = `
       <div class="no-data">

@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from flask import Blueprint, current_app, jsonify
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from .models import UserRelationship
+from .models_genogram import Partnership, LifeEvent, MedicalCondition
 from ..users.models import User
 from ...utils.auth import api_login_required
 
@@ -269,11 +270,13 @@ def get_extended_family(user_id: int, sess):
 def build_complete_family_network(root_user_id: int, sess):
     """
     Build a complete family network starting from a root user.
-    Returns all people in the network with their actual parent-child relationships.
+    Returns all people in the network with their actual parent-child relationships,
+    partnerships, and life events.
     """
     visited = set()
     people = {}
     relationships = []  # List of (parent_id, child_id) tuples
+    partnerships = []  # List of partnership data
     
     def get_person_data(user):
         """Convert user to dictionary format."""
@@ -332,9 +335,34 @@ def build_complete_family_network(root_user_id: int, sess):
     # Start exploration from root user
     explore_network(root_user_id)
     
+    # Get all partnerships involving people in our network
+    if people:
+        all_partnerships = sess.scalars(
+            select(Partnership).where(
+                or_(
+                    Partnership.person1_id.in_(people.keys()),
+                    Partnership.person2_id.in_(people.keys())
+                )
+            )
+        ).all()
+        
+        for partnership in all_partnerships:
+            partnerships.append({
+                'id': partnership.id,
+                'person1_id': partnership.person1_id,
+                'person2_id': partnership.person2_id,
+                'relationship_type': partnership.relationship_type.value,
+                'relationship_quality': partnership.relationship_quality.value if partnership.relationship_quality else None,
+                'start_date': partnership.start_date.isoformat() if partnership.start_date else None,
+                'end_date': partnership.end_date.isoformat() if partnership.end_date else None,
+                'has_children': partnership.has_children,
+                'custody_type': partnership.custody_type.value if partnership.custody_type else None,
+            })
+    
     return {
         'people': people,
         'relationships': relationships,  # List of (parent_id, child_id) tuples
+        'partnerships': partnerships,  # List of partnership dictionaries
         'root_id': root_user_id
     }
 
@@ -367,12 +395,13 @@ def get_family_tree():
         # Build complete family network
         network = build_complete_family_network(user.id, sess)
         
-        print(f"Network built: {len(network['people'])} people, {len(network['relationships'])} parent-child relationships")
+        print(f"Network built: {len(network['people'])} people, {len(network['relationships'])} parent-child relationships, {len(network['partnerships'])} partnerships")
         
         tree_data = {
             'root_id': user.id,
             'people': network['people'],
             'relationships': network['relationships'],  # List of [parent_id, child_id] arrays
+            'partnerships': network['partnerships'],  # List of partnership objects
         }
         
         print("Returning tree data as JSON...")

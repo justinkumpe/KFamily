@@ -126,6 +126,14 @@ def create_app() -> Flask:
     app.register_blueprint(relationships_bp, url_prefix="/api/relationships")
     app.register_blueprint(tree_bp, url_prefix="/api/tree")
     
+    # Genogram-specific blueprints
+    from .modules.family.partnerships import partnerships_bp
+    from .modules.family.life_events import life_events_bp
+    from .modules.family.medical import medical_bp
+    app.register_blueprint(partnerships_bp, url_prefix="/api/partnerships")
+    app.register_blueprint(life_events_bp, url_prefix="/api/life-events")
+    app.register_blueprint(medical_bp, url_prefix="/api/medical-conditions")
+    
     from .modules.timeline.routes import timeline_bp
     app.register_blueprint(timeline_bp)
 
@@ -138,6 +146,9 @@ def create_app() -> Flask:
     csrf.exempt(family_bp)
     csrf.exempt(relationships_bp)
     csrf.exempt(tree_bp)
+    csrf.exempt(partnerships_bp)
+    csrf.exempt(life_events_bp)
+    csrf.exempt(medical_bp)
     csrf.exempt(timeline_bp)
 
     return app

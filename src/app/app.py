@@ -11,6 +11,7 @@ from flask_wtf import CSRFProtect
 from .db import SessionLocal
 from .modules.family.routes import family_bp
 from .modules.family.relationships import relationships_bp
+from .modules.family.tree import tree_bp
 from .modules.users.routes import users_bp
 
 
@@ -59,7 +60,6 @@ def create_app() -> Flask:
             except Exception as e:
                 # Ignore session state errors during teardown
                 app.logger.debug(f"Session teardown error (ignored): {e}")
-                pass
 
     @app.get("/")
     def index() -> Any:
@@ -101,6 +101,11 @@ def create_app() -> Flask:
     def family_page() -> Any:
         return render_template("family.html")
 
+    @app.get("/tree")
+    @login_required
+    def tree_page() -> Any:
+        return render_template("tree.html")
+
     @app.get("/admin/users")
     @login_required
     def admin_users_page() -> Any:
@@ -112,6 +117,7 @@ def create_app() -> Flask:
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(family_bp, url_prefix="/api/family")
     app.register_blueprint(relationships_bp, url_prefix="/api/relationships")
+    app.register_blueprint(tree_bp, url_prefix="/api/tree")
 
     # Auth blueprint
     from .modules.auth.routes import auth_bp
@@ -121,5 +127,6 @@ def create_app() -> Flask:
     csrf.exempt(users_bp)
     csrf.exempt(family_bp)
     csrf.exempt(relationships_bp)
+    csrf.exempt(tree_bp)
 
     return app

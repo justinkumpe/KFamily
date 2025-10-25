@@ -1,0 +1,277 @@
+<!-- User Profile Modal -->
+<style>
+  .profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    object-fit: cover;
+    margin: 0 auto 1rem;
+    display: block;
+  }
+  
+  .profile-avatar-wrapper {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+  
+  .profile-avatar-wrapper.deceased::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom right, 
+                                transparent 0%, 
+                                transparent calc(50% - 2px), 
+                                rgba(220, 53, 69, 0.9) calc(50% - 2px), 
+                                rgba(220, 53, 69, 0.9) calc(50% + 2px), 
+                                transparent calc(50% + 2px), 
+                                transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  
+  .profile-header-container {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+</style>
+
+<div class="modal fade" id="userProfileModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-person-circle"></i> <span id="profile-modal-title">User Profile</span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="profile-loading" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        
+        <div id="profile-content" style="display: none;">
+          <!-- Profile Avatar -->
+          <div class="profile-header-container">
+            <div id="profile-avatar-wrapper" class="profile-avatar-wrapper">
+              <img id="profile-avatar" src="" alt="Profile Avatar" class="profile-avatar" />
+            </div>
+          </div>
+          
+          <!-- Personal Information -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-person-fill"></i> Personal Information</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Display Name:</strong> <span id="profile-display-name"></span></p>
+                  <p><strong>Full Name:</strong> <span id="profile-full-name"></span></p>
+                  <p><strong>Email:</strong> <span id="profile-email"></span></p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Sex:</strong> <span id="profile-sex"></span></p>
+                  <p><strong>Gender:</strong> <span id="profile-gender"></span></p>
+                  <p><strong>Age:</strong> <span id="profile-age"></span></p>
+                </div>
+              </div>
+              <div id="profile-record-only-badge" style="display: none;">
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-info-circle"></i> Record Only - Cannot Login
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact Information -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-telephone-fill"></i> Contact Information</h6>
+            </div>
+            <div class="card-body">
+              <p><strong>Phone:</strong> <span id="profile-phone"></span></p>
+              <p><strong>Address:</strong> <span id="profile-address"></span></p>
+            </div>
+          </div>
+
+          <!-- Important Dates -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-calendar-fill"></i> Important Dates</h6>
+            </div>
+            <div class="card-body">
+              <p><strong>Birthday:</strong> <span id="profile-birthday"></span></p>
+              <p><strong>Adoption Date:</strong> <span id="profile-adoption-date"></span></p>
+              <p><strong>Death Date:</strong> <span id="profile-death-date"></span></p>
+            </div>
+          </div>
+
+          <!-- Households -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-house-fill"></i> Households</h6>
+            </div>
+            <div class="card-body">
+              <div id="profile-households"></div>
+            </div>
+          </div>
+
+          <!-- Family Relationships -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-people-fill"></i> Family Relationships</h6>
+            </div>
+            <div class="card-body">
+              <div id="profile-relationships"></div>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="card mb-3">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-journal-text"></i> Notes</h6>
+            </div>
+            <div class="card-body">
+              <p id="profile-notes" class="mb-0"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-warning" id="profile-edit-btn" style="display: none;">
+          <i class="bi bi-pencil-fill"></i> Edit Profile
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function showUserProfile(userId) {
+  const modal = new bootstrap.Modal(document.getElementById('userProfileModal'));
+  document.getElementById('profile-loading').style.display = 'block';
+  document.getElementById('profile-content').style.display = 'none';
+  
+  modal.show();
+  
+  try {
+    const res = await fetch(`/api/users/${userId}/profile`);
+    if (!res.ok) {
+      throw new Error('Failed to load profile');
+    }
+    
+    const profile = await res.json();
+    
+    // Update modal title
+    document.getElementById('profile-modal-title').textContent = profile.display_name || profile.email;
+    
+    // Update avatar
+    const avatarImg = document.getElementById('profile-avatar');
+    const avatarWrapper = document.getElementById('profile-avatar-wrapper');
+    avatarImg.src = profile.gravatar_url;
+    avatarImg.alt = profile.display_name || profile.first_name || 'User Avatar';
+    
+    // Add deceased class if applicable
+    if (profile.death_date) {
+      avatarWrapper.classList.add('deceased');
+    } else {
+      avatarWrapper.classList.remove('deceased');
+    }
+    
+    // Personal Information
+    document.getElementById('profile-display-name').textContent = profile.display_name || '-';
+    const fullName = [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') || '-';
+    document.getElementById('profile-full-name').textContent = fullName;
+    document.getElementById('profile-email').textContent = profile.email || '-';
+    document.getElementById('profile-sex').textContent = profile.sex || '-';
+    document.getElementById('profile-gender').textContent = profile.gender || '-';
+    document.getElementById('profile-age').textContent = profile.age !== null ? `${profile.age} years old` : '-';
+    
+    // Show record-only badge if applicable
+    const recordOnlyBadge = document.getElementById('profile-record-only-badge');
+    if (profile.is_record_only) {
+      recordOnlyBadge.style.display = 'block';
+    } else {
+      recordOnlyBadge.style.display = 'none';
+    }
+    
+    // Contact Information
+    document.getElementById('profile-phone').textContent = profile.phone || '-';
+    document.getElementById('profile-address').textContent = profile.address || '-';
+    
+    // Important Dates
+    document.getElementById('profile-birthday').textContent = profile.birthday || '-';
+    document.getElementById('profile-adoption-date').textContent = profile.adoption_date || '-';
+    document.getElementById('profile-death-date').textContent = profile.death_date || '-';
+    
+    // Households
+    const householdsDiv = document.getElementById('profile-households');
+    if (profile.households && profile.households.length > 0) {
+      householdsDiv.innerHTML = profile.households.map(h => `
+        <div class="mb-2">
+          <strong>${h.name}</strong> 
+          <span class="badge bg-info">${h.role}</span>
+          ${h.joined_date ? `<br><small class="text-muted">Joined: ${h.joined_date}</small>` : ''}
+        </div>
+      `).join('');
+    } else {
+      householdsDiv.innerHTML = '<p class="text-muted mb-0">No household memberships</p>';
+    }
+    
+    // Family Relationships
+    const relationshipsDiv = document.getElementById('profile-relationships');
+    if (profile.relationships && profile.relationships.length > 0) {
+      relationshipsDiv.innerHTML = profile.relationships.map(r => `
+        <div class="mb-2">
+          <strong>${r.relationship_type}</strong> → 
+          <a href="#" onclick="showUserProfile(${r.related_user_id}); return false;">${r.related_user_name}</a>
+          ${r.notes ? `<br><small class="text-muted">${r.notes}</small>` : ''}
+        </div>
+      `).join('');
+    } else {
+      relationshipsDiv.innerHTML = '<p class="text-muted mb-0">No family relationships</p>';
+    }
+    
+    // Notes
+    document.getElementById('profile-notes').textContent = profile.notes || 'No notes';
+    
+    // Show/hide edit button
+    const editBtn = document.getElementById('profile-edit-btn');
+    if (profile.can_edit) {
+      editBtn.style.display = 'inline-block';
+      editBtn.onclick = () => {
+        // Close profile modal and open edit modal
+        modal.hide();
+        // If on admin page, use existing edit function
+        if (typeof editUser === 'function') {
+          editUser(userId);
+        } else {
+          // Otherwise, navigate to admin page or show simplified edit form
+          window.location.href = `/admin/users?edit=${userId}`;
+        }
+      };
+    } else {
+      editBtn.style.display = 'none';
+    }
+    
+    // Show content
+    document.getElementById('profile-loading').style.display = 'none';
+    document.getElementById('profile-content').style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error loading profile:', error);
+    document.getElementById('profile-loading').innerHTML = `
+      <div class="alert alert-danger">
+        Failed to load profile. Please try again.
+      </div>
+    `;
+  }
+}
+</script>

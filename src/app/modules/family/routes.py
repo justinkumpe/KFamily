@@ -14,8 +14,21 @@ family_bp = Blueprint("family", __name__)
 @family_bp.get("/households")
 @api_login_required
 def list_households():
+    """List households visible to the current user."""
+    from flask_login import current_user
     sess = current_app.session
-    households = sess.scalars(select(Household)).all()
+    
+    # Get all households
+    all_households = sess.scalars(select(Household)).all()
+    
+    # Filter to only households where user is a member (unless admin)
+    if current_user.has_any_group("admin", "super-admin"):
+        visible_households = all_households
+    else:
+        # Only show households where user is a member
+        user_household_ids = {m.household_id for m in current_user.household_memberships}
+        visible_households = [h for h in all_households if h.id in user_household_ids]
+    
     return jsonify([
         {
             "id": h.id,
@@ -36,7 +49,7 @@ def list_households():
                 for m in h.members
             ],
         }
-        for h in households
+        for h in visible_households
     ])
 
 
@@ -138,6 +151,23 @@ def remove_household_member(household_id: int, member_id: int):
         return jsonify({"error": "Member does not belong to this household"}), 400
     
     sess.delete(member)
+    sess.commit()
+    
+    return jsonify({"success": True}), 200
+
+
+@family_bp.delete("/households/<int:household_id>")
+@api_require_groups(["family-admin", "admin", "super-admin"])
+def delete_household(household_id: int):
+    """Delete a household. Only admins can delete households."""
+    sess = current_app.session
+    
+    household = sess.get(Household, household_id)
+    if not household:
+        return jsonify({"error": "Household not found"}), 404
+    
+    # Delete the household (members will be cascade deleted)
+    sess.delete(household)
     sess.commit()
     
     return jsonify({"success": True}), 200

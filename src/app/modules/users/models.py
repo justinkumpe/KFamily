@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import List, Optional, TYPE_CHECKING
 
-from sqlalchemy import Integer, String, Date, Table, Column, ForeignKey, UniqueConstraint
+from sqlalchemy import Integer, String, Date, Table, Column, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ...db import Base
@@ -27,9 +27,10 @@ class User(Base, UserMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_record_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     
     # Personal information for family tree
     first_name: Mapped[Optional[str]] = mapped_column(String(100))
@@ -77,9 +78,42 @@ class User(Base, UserMixin):
     # password helpers
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
+        # If password is being set and we have an email, mark as not record-only
+        if self.email:
+            self.is_record_only = False
 
     def check_password(self, password: str) -> bool:
+        if not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
+    
+    @property
+    def can_login(self) -> bool:
+        """Check if user has credentials to login (email and password)."""
+        return not self.is_record_only and self.email is not None and self.password_hash is not None
+    
+    def gravatar_url(self, size: int = 80) -> str:
+        """
+        Generate Gravatar URL for user's email.
+        Uses mystery person (mp) as default for users without email or with record-only accounts.
+        
+        Args:
+            size: Image size in pixels (default 80)
+        
+        Returns:
+            Gravatar URL string
+        """
+        import hashlib
+        
+        if self.email:
+            # Create MD5 hash of lowercase email
+            email_hash = hashlib.md5(self.email.lower().strip().encode('utf-8')).hexdigest()
+        else:
+            # Use a consistent hash for users without email (generates same mystery person)
+            email_hash = hashlib.md5(f"user-{self.id}".encode('utf-8')).hexdigest()
+        
+        # Use mystery person (mp) as default, with size parameter
+        return f"https://www.gravatar.com/avatar/{email_hash}?d=mp&s={size}"
 
     # family tree helpers
     @property
@@ -92,8 +126,7 @@ class User(Base, UserMixin):
             delta = self.death_date - self.birthday
             return delta.days // 365
         # Calculate current age
-        from datetime import date as today_date
-        today = today_date.today()
+        today = date.today()
         delta = today - self.birthday
         return delta.days // 365
 
@@ -163,6 +196,71 @@ class User(Base, UserMixin):
                 target_member_ids = {m.user_id for m in household.members}
                 if target_user_id in target_member_ids:
                     return True
+        return False
+    
+    def can_edit_user(self, target_user_id: int) -> bool:
+        """
+        Check if this user can edit another user's profile.
+        Returns True if ANY of the following:
+        1. Editing own profile (self.id == target_user_id)
+        2. Has 'admin' or 'super-admin' group
+        3. Is household admin in a household where target is a member
+        4. Is listed as target's parent in family relationships
+        """
+        # Can always edit own profile
+        if self.id == target_user_id:
+            return True
+        
+        # Admins can edit anyone
+        if self.has_any_group("admin", "super-admin"):
+            return True
+        
+        # Check if household admin for any of target's households
+        if self.can_edit_household_member(target_user_id):
+            return True
+        
+        # Check if this user is target's parent in family relationships
+        for rel in self.family_relationships:
+            if rel.related_user_id == target_user_id:
+                if rel.relationship_type in ["parent", "father", "mother", "adoptive-parent", "adoptive-father", "adoptive-mother"]:
+                    return True
+        
+        return False
+    
+    def can_view_user(self, target_user_id: int) -> bool:
+        """
+        Check if this user can view another user's profile.
+        Returns True if ANY of the following:
+        1. Viewing own profile (self.id == target_user_id)
+        2. Has 'admin' or 'super-admin' group (can view all)
+        3. In same household as target user (any role including view-only)
+        4. Has direct family relationship with target user (either direction)
+        """
+        # Can always view own profile
+        if self.id == target_user_id:
+            return True
+        
+        # Admins can view anyone
+        if self.has_any_group("admin", "super-admin"):
+            return True
+        
+        # Check if in same household (any role can view household members)
+        for membership in self.household_memberships:
+            household = membership.household
+            target_member_ids = {m.user_id for m in household.members}
+            if target_user_id in target_member_ids:
+                return True
+        
+        # Check for direct family relationship (outgoing: this user -> target)
+        for rel in self.family_relationships:
+            if rel.related_user_id == target_user_id:
+                return True
+        
+        # Check for direct family relationship (incoming: target -> this user)
+        for rel in self.related_to_me:
+            if rel.user_id == target_user_id:
+                return True
+        
         return False
 
 

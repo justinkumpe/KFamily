@@ -9,139 +9,104 @@
     margin-bottom: 2rem;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   }
-  .user-row {
-    transition: background-color 0.2s;
+  .user-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 4px solid #4facfe;
+    cursor: pointer;
   }
-  .user-row:hover {
-    background-color: #f8f9fa;
+  .user-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
   }
 </style>
 
 <div class="page-header fade-in">
-  <h1 class="mb-0"><i class="bi bi-people-fill"></i> User Management</h1>
-  <p class="mb-0 mt-2">View and manage system users</p>
+  <h1 class="mb-0"><i class="bi bi-people-fill"></i> Users</h1>
+  <p class="mb-0 mt-2">View and connect with family members</p>
 </div>
 
 <div class="card shadow-sm mb-4">
   <div class="card-header bg-white">
-    <h5 class="mb-0"><i class="bi bi-person-plus-fill"></i> Create New User</h5>
+    <h5 class="mb-0"><i class="bi bi-search"></i> Search Users</h5>
   </div>
   <div class="card-body">
-    <form id="user-form" class="row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Email</label>
-        <input class="form-control" name="email" type="email" placeholder="user@example.com" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Display Name</label>
-        <input class="form-control" name="display_name" placeholder="John Doe" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Password</label>
-        <input class="form-control" name="password" type="password" placeholder="••••••••" required>
-      </div>
-      <div class="col-12">
-        <button class="btn btn-primary" type="submit">
-          <i class="bi bi-check-circle-fill"></i> Create User
-        </button>
-        <button class="btn btn-success ms-2" id="seed-groups" type="button">
-          <i class="bi bi-cloud-download-fill"></i> Seed Groups
-        </button>
-        <span id="user-msg" class="text-success ms-3"></span>
-      </div>
-    </form>
+    <input type="text" id="user-search" class="form-control" placeholder="Search by name or email...">
   </div>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-header bg-white">
-    <h5 class="mb-0"><i class="bi bi-list-ul"></i> All Users</h5>
-  </div>
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-hover" id="users-table">
-        <thead class="table-light">
-          <tr>
-            <th><i class="bi bi-hash"></i> ID</th>
-            <th><i class="bi bi-envelope-fill"></i> Email</th>
-            <th><i class="bi bi-person-fill"></i> Name</th>
-            <th><i class="bi bi-shield-fill"></i> Groups</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<div id="users-container" class="row"></div>
 
 <script>
-async function loadUsersPage() {
-  const tableBody = document.querySelector('#users-table tbody');
-  const load = async () => {
-    try {
-      const res = await fetch('/api/users');
-      const users = await res.json();
-      tableBody.innerHTML = users.map(u => `
-        <tr class="user-row">
-          <td><strong>${u.id}</strong></td>
-          <td>${u.email}</td>
-          <td>${u.display_name}</td>
-          <td>
-            ${(u.groups||[]).map(g => 
-              `<span class="badge bg-primary me-1">${g}</span>`
-            ).join('')}
-          </td>
-        </tr>
-      `).join('');
-      if (users.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No users found</td></tr>';
-      }
-    } catch (e) {
-      tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Failed to load users</td></tr>';
-      console.error(e);
+let allUsers = [];
+
+async function loadUsers() {
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) {
+      throw new Error('Failed to load users');
     }
-  };
-  await load();
-  
-  document.getElementById('user-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const payload = Object.fromEntries(fd.entries());
-    try {
-      const res = await fetch('/api/users', { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        document.getElementById('user-msg').innerHTML = '<i class="bi bi-check-circle-fill"></i> User created successfully!';
-        e.target.reset();
-        await load();
-        setTimeout(() => {
-          document.getElementById('user-msg').textContent = '';
-        }, 3000);
-      } else {
-        document.getElementById('user-msg').innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i> Failed to create user';
-      }
-    } catch (e) {
-      document.getElementById('user-msg').innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i> Error creating user';
-      console.error(e);
-    }
-  });
-  
-  document.getElementById('seed-groups').addEventListener('click', async () => {
-    try {
-      await fetch('/api/users/seed-groups', { method: 'POST' });
-      document.getElementById('user-msg').innerHTML = '<i class="bi bi-check-circle-fill"></i> Groups seeded successfully!';
-      setTimeout(() => {
-        document.getElementById('user-msg').textContent = '';
-      }, 3000);
-    } catch (e) {
-      console.error(e);
-    }
-  });
+    allUsers = await res.json();
+    renderUsers(allUsers);
+  } catch (e) {
+    console.error('Error loading users:', e);
+    document.getElementById('users-container').innerHTML = `
+      <div class="col-12">
+        <div class="alert alert-danger">
+          <i class="bi bi-exclamation-triangle-fill"></i> Failed to load users. Please try again.
+        </div>
+      </div>
+    `;
+  }
 }
 
-document.addEventListener('DOMContentLoaded', loadUsersPage);
+function renderUsers(users) {
+  const container = document.getElementById('users-container');
+  
+  if (users.length === 0) {
+    container.innerHTML = `
+      <div class="col-12">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle-fill"></i> No users found.
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = users.map(u => {
+    const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ');
+    return `
+      <div class="col-md-6 col-lg-4 mb-3 fade-in">
+        <div class="card user-card h-100 shadow-sm" onclick="showUserProfile(${u.id})">
+          <div class="card-body">
+            <h6 class="card-title">
+              <i class="bi bi-person-circle"></i> ${u.display_name}
+            </h6>
+            ${fullName ? `<p class="text-muted small mb-2">${fullName}</p>` : ''}
+            <p class="text-muted small mb-2">
+              <i class="bi bi-envelope-fill"></i> ${u.email}
+            </p>
+            ${u.age !== null ? `<p class="text-muted small mb-2"><i class="bi bi-calendar-fill"></i> ${u.age} years old</p>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Search functionality
+document.getElementById('user-search').addEventListener('input', (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  const filtered = allUsers.filter(u => 
+    u.display_name.toLowerCase().includes(searchTerm) ||
+    u.email.toLowerCase().includes(searchTerm) ||
+    (u.first_name && u.first_name.toLowerCase().includes(searchTerm)) ||
+    (u.last_name && u.last_name.toLowerCase().includes(searchTerm))
+  );
+  renderUsers(filtered);
+});
+
+// Load users on page load
+loadUsers();
 </script>
 {% endblock %}

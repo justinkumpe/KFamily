@@ -34,16 +34,26 @@ def admin_users_page_api():
 
 
 @users_bp.get("")
-@api_require_groups(["admin", "super-admin"])
+@api_login_required
 def list_users():
+    """List users visible to the current user."""
+    from flask_login import current_user
     sess = current_app.session
-    users = sess.scalars(select(User)).all()
+    
+    all_users = sess.scalars(select(User)).all()
+    
+    # Filter to only users that current user can view
+    if current_user.has_any_group("admin", "super-admin"):
+        visible_users = all_users
+    else:
+        visible_users = [u for u in all_users if current_user.can_view_user(u.id)]
+    
     return jsonify([
         {
             "id": u.id,
             "email": u.email,
             "display_name": u.display_name,
-            "groups": [g.name for g in u.groups],
+            "groups": [g.name for g in u.groups] if current_user.has_any_group("admin", "super-admin") else [],
             "first_name": u.first_name,
             "middle_name": u.middle_name,
             "last_name": u.last_name,
@@ -57,7 +67,7 @@ def list_users():
             "notes": u.notes,
             "age": u.age,
         }
-        for u in users
+        for u in visible_users
     ])
 
 
@@ -65,27 +75,57 @@ def list_users():
 @api_require_groups(["admin", "super-admin"])
 def create_user():
     data = request.get_json(force=True)
+    
+    # Determine if this is a record-only user
+    has_email = bool(data.get("email"))
+    has_password = bool(data.get("password"))
+    is_record_only = not (has_email and has_password)
+    
+    # If record-only, require at least first_name and last_name for identification
+    if is_record_only:
+        if not data.get("first_name") or not data.get("last_name"):
+            return jsonify({"error": "Record-only users must have first_name and last_name"}), 400
+    
+    # Create display_name
+    if data.get("display_name"):
+        display_name = data["display_name"]
+    elif has_email:
+        display_name = data["email"].split("@")[0]
+    else:
+        # For record-only users, use first + last name
+        display_name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
+    
+    # Helper to convert empty strings to None for optional fields
+    def clean_optional(value):
+        return value if value and value.strip() else None
+    
     user = User(
-        email=data["email"],
-        display_name=data.get("display_name", data["email"].split("@")[0]),
-        password_hash=data.get("password_hash", "changeme"),
-        first_name=data.get("first_name"),
-        middle_name=data.get("middle_name"),
-        last_name=data.get("last_name"),
-        phone=data.get("phone"),
-        address=data.get("address"),
-        birthday=data.get("birthday"),
-        death_date=data.get("death_date"),
-        adoption_date=data.get("adoption_date"),
-        sex=data.get("sex"),
-        gender=data.get("gender"),
-        notes=data.get("notes"),
+        email=clean_optional(data.get("email")),
+        display_name=display_name,
+        password_hash=None,
+        is_record_only=is_record_only,
+        first_name=clean_optional(data.get("first_name")),
+        middle_name=clean_optional(data.get("middle_name")),
+        last_name=clean_optional(data.get("last_name")),
+        phone=clean_optional(data.get("phone")),
+        address=clean_optional(data.get("address")),
+        birthday=clean_optional(data.get("birthday")),
+        death_date=clean_optional(data.get("death_date")),
+        adoption_date=clean_optional(data.get("adoption_date")),
+        sex=clean_optional(data.get("sex")),
+        gender=clean_optional(data.get("gender")),
+        notes=clean_optional(data.get("notes")),
     )
-    if "password" in data:
+    if has_password:
         user.set_password(data["password"])
     current_app.session.add(user)
     current_app.session.commit()
-    return jsonify({"id": user.id, "email": user.email, "display_name": user.display_name}), 201
+    return jsonify({
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "is_record_only": user.is_record_only
+    }), 201
 
 
 @users_bp.post("/<int:user_id>/groups")
@@ -141,39 +181,56 @@ def update_user(user_id: int):
     old_sex = user.sex
     sex_changed = False
     
+    # Helper to convert empty strings to None
+    def clean_optional(value):
+        return value if value and str(value).strip() else None
+    
     if "email" in data:
-        user.email = data["email"]
+        user.email = clean_optional(data["email"])
     if "display_name" in data:
         user.display_name = data["display_name"]
     if "password" in data and data["password"]:
         user.set_password(data["password"])
     
+    # Re-check validation after field updates, before committing
+    # Note: password won't be cleared unless explicitly set to None, so we check current state
+    
     # Update family tree fields
     if "first_name" in data:
-        user.first_name = data["first_name"] or None
+        user.first_name = clean_optional(data["first_name"])
     if "middle_name" in data:
-        user.middle_name = data["middle_name"] or None
+        user.middle_name = clean_optional(data["middle_name"])
     if "last_name" in data:
-        user.last_name = data["last_name"] or None
+        user.last_name = clean_optional(data["last_name"])
     if "phone" in data:
-        user.phone = data["phone"] or None
+        user.phone = clean_optional(data["phone"])
     if "address" in data:
-        user.address = data["address"] or None
+        user.address = clean_optional(data["address"])
     if "birthday" in data:
-        user.birthday = data["birthday"] or None
+        user.birthday = clean_optional(data["birthday"])
     if "death_date" in data:
-        user.death_date = data["death_date"] or None
+        user.death_date = clean_optional(data["death_date"])
     if "adoption_date" in data:
-        user.adoption_date = data["adoption_date"] or None
+        user.adoption_date = clean_optional(data["adoption_date"])
     if "sex" in data:
-        new_sex = data["sex"] or None
+        new_sex = clean_optional(data["sex"])
         if new_sex != old_sex:
             sex_changed = True
         user.sex = new_sex
     if "gender" in data:
-        user.gender = data["gender"] or None
+        user.gender = clean_optional(data["gender"])
     if "notes" in data:
-        user.notes = data["notes"] or None
+        user.notes = clean_optional(data["notes"])
+    
+    # Update is_record_only flag based on final email and password state
+    has_email = user.email is not None and user.email.strip()
+    has_password = user.password_hash is not None
+    user.is_record_only = not (has_email and has_password)
+    
+    # If converting to record-only, require first and last name
+    if user.is_record_only:
+        if not user.first_name or not user.last_name:
+            return jsonify({"error": "Record-only users must have first_name and last_name"}), 400
     
     sess.commit()
     
@@ -263,19 +320,89 @@ def can_edit_user(user_id: int):
     """Check if the current user can edit the specified user."""
     from flask_login import current_user
     
-    # Admins can edit anyone
-    if current_user.has_any_group("admin", "super-admin"):
-        return jsonify({"can_edit": True, "reason": "admin"})
+    # Use the new can_edit_user method
+    can_edit = current_user.can_edit_user(user_id)
     
-    # Check if current user is a household parent of the target user
-    if current_user.can_edit_household_member(user_id):
-        return jsonify({"can_edit": True, "reason": "household_parent"})
+    # Determine reason
+    if can_edit:
+        if current_user.id == user_id:
+            reason = "self"
+        elif current_user.has_any_group("admin", "super-admin"):
+            reason = "admin"
+        elif current_user.can_edit_household_member(user_id):
+            reason = "household_admin"
+        else:
+            reason = "parent"
+    else:
+        reason = None
     
-    # Check if editing self
-    if current_user.id == user_id:
-        return jsonify({"can_edit": True, "reason": "self"})
+    return jsonify({"can_edit": can_edit, "reason": reason})
+
+
+@users_bp.get("/<int:user_id>/profile")
+@api_login_required
+def get_user_profile(user_id: int):
+    """Get a user's profile information with permission context."""
+    from flask_login import current_user
+    sess = current_app.session
     
-    return jsonify({"can_edit": False})
+    user = sess.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Check if current user can view this profile
+    if not current_user.can_view_user(user_id):
+        return jsonify({"error": "You do not have permission to view this profile"}), 403
+    
+    can_edit = current_user.can_edit_user(user_id)
+    
+    # Get household memberships
+    households = []
+    for membership in user.household_memberships:
+        h = membership.household
+        households.append({
+            "id": h.id,
+            "name": h.name,
+            "role": membership.role,
+            "joined_date": membership.joined_date.isoformat() if membership.joined_date else None
+        })
+    
+    # Get family relationships
+    relationships = []
+    for rel in user.family_relationships:
+        relationships.append({
+            "id": rel.id,
+            "related_user_id": rel.related_user_id,
+            "related_user_name": rel.related_user.display_name,
+            "relationship_type": rel.relationship_type,
+            "notes": rel.notes
+        })
+    
+    profile = {
+        "id": user.id,
+        "email": user.email,
+        "display_name": user.display_name,
+        "first_name": user.first_name,
+        "middle_name": user.middle_name,
+        "last_name": user.last_name,
+        "phone": user.phone,
+        "address": user.address,
+        "birthday": user.birthday.isoformat() if user.birthday else None,
+        "death_date": user.death_date.isoformat() if user.death_date else None,
+        "adoption_date": user.adoption_date.isoformat() if user.adoption_date else None,
+        "sex": user.sex,
+        "gender": user.gender,
+        "notes": user.notes,
+        "age": user.age,
+        "is_record_only": user.is_record_only,
+        "gravatar_url": user.gravatar_url(size=200),
+        "households": households,
+        "relationships": relationships,
+        "can_edit": can_edit,
+        "groups": [g.name for g in user.groups] if can_edit else []  # Only show groups if can edit
+    }
+    
+    return jsonify(profile)
 
 
 @users_bp.get("/groups")

@@ -110,19 +110,26 @@
       </div>
       <div class="modal-body">
         <form id="create-user-form">
-          <h6 class="mb-3 text-primary"><i class="bi bi-lock-fill"></i> Account Information</h6>
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Login Account vs Record Only:</strong> To create a login account, provide both email and password. 
+            Leave both blank to create a record-only user (requires first and last name).
+          </div>
+          
+          <h6 class="mb-3 text-primary"><i class="bi bi-lock-fill"></i> Account Information (Optional)</h6>
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-control" name="email" required>
+              <label class="form-label">Email <small class="text-muted">(optional)</small></label>
+              <input type="email" class="form-control" name="email" id="create-email">
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">Display Name</label>
-              <input type="text" class="form-control" name="display_name" required>
+              <label class="form-label">Display Name <small class="text-muted">(optional)</small></label>
+              <input type="text" class="form-control" name="display_name" id="create-display-name">
+              <small class="text-muted">Auto-generated if not provided</small>
             </div>
             <div class="col-md-12 mb-3">
-              <label class="form-label">Password</label>
-              <input type="password" class="form-control" name="password" required>
+              <label class="form-label">Password <small class="text-muted">(optional)</small></label>
+              <input type="password" class="form-control" name="password" id="create-password">
             </div>
           </div>
           
@@ -130,16 +137,16 @@
           <h6 class="mb-3 text-primary"><i class="bi bi-person-fill"></i> Personal Information</h6>
           <div class="row">
             <div class="col-md-4 mb-3">
-              <label class="form-label">First Name</label>
-              <input type="text" class="form-control" name="first_name">
+              <label class="form-label">First Name <span class="text-danger" id="first-name-required">*</span></label>
+              <input type="text" class="form-control" name="first_name" id="create-first-name">
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">Middle Name</label>
               <input type="text" class="form-control" name="middle_name">
             </div>
             <div class="col-md-4 mb-3">
-              <label class="form-label">Last Name</label>
-              <input type="text" class="form-control" name="last_name">
+              <label class="form-label">Last Name <span class="text-danger" id="last-name-required">*</span></label>
+              <input type="text" class="form-control" name="last_name" id="create-last-name">
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Sex</label>
@@ -214,18 +221,23 @@
         <form id="edit-user-form">
           <input type="hidden" id="edit-user-id">
           
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Login Account vs Record Only:</strong> Removing both email and password will convert this to a record-only user (requires first and last name).
+          </div>
+          
           <h6 class="mb-3 text-warning"><i class="bi bi-lock-fill"></i> Account Information</h6>
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-control" id="edit-email" required>
+              <label class="form-label">Email <small class="text-muted">(optional)</small></label>
+              <input type="email" class="form-control" id="edit-email">
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Display Name</label>
               <input type="text" class="form-control" id="edit-display-name" required>
             </div>
             <div class="col-md-12 mb-3">
-              <label class="form-label">New Password (leave blank to keep current)</label>
+              <label class="form-label">New Password <small class="text-muted">(leave blank to keep current)</small></label>
               <input type="password" class="form-control" id="edit-password">
             </div>
           </div>
@@ -516,13 +528,16 @@ function renderUsers() {
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start mb-2">
             <h6 class="card-title mb-0">
-              <i class="bi bi-person-circle"></i> ${u.display_name}
+              <a href="#" onclick="showUserProfile(${u.id}); return false;" class="text-decoration-none">
+                <i class="bi bi-person-circle"></i> ${u.display_name}
+              </a>
             </h6>
             ${dropdown}
           </div>
           <p class="card-text text-muted small mb-2">
-            <i class="bi bi-envelope-fill"></i> ${u.email}
+            <i class="bi bi-envelope-fill"></i> ${u.email || 'No email'}
           </p>
+          ${u.is_record_only ? '<span class="badge bg-warning text-dark"><i class="bi bi-info-circle"></i> Record Only</span>' : ''}
           <p class="card-text text-muted small mb-2">
             <i class="bi bi-hash"></i> ID: ${u.id}
           </p>
@@ -546,6 +561,19 @@ document.getElementById('create-user-form').addEventListener('submit', async (e)
   e.preventDefault();
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd.entries());
+  
+  // Validate: if creating record-only user, require first and last name
+  const hasEmail = data.email && data.email.trim();
+  const hasPassword = data.password && data.password.trim();
+  const isRecordOnly = !hasEmail || !hasPassword;
+  
+  if (isRecordOnly) {
+    if (!data.first_name || !data.last_name) {
+      showToast('Record-only users must have first and last name', 'danger');
+      return;
+    }
+  }
+  
   try {
     const res = await fetch('/api/users', {
       method: 'POST',
@@ -556,7 +584,9 @@ document.getElementById('create-user-form').addEventListener('submit', async (e)
       bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
       e.target.reset();
       await loadUsers();
-      showToast('User created successfully!', 'success');
+      const result = await res.json();
+      const msg = result.is_record_only ? 'Record-only user created successfully!' : 'User created successfully!';
+      showToast(msg, 'success');
     } else {
       const error = await res.json();
       showToast(`Failed to create user: ${error.error || 'Unknown error'}`, 'danger');
@@ -586,6 +616,19 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
     death_date: document.getElementById('edit-death-date').value,
     notes: document.getElementById('edit-notes').value
   };
+  
+  // Validate: if converting to record-only user, require first and last name
+  const hasEmail = data.email && data.email.trim();
+  const hasPassword = data.password && data.password.trim();
+  const isRecordOnly = !hasEmail || !hasPassword;
+  
+  if (isRecordOnly) {
+    if (!data.first_name || !data.last_name) {
+      showToast('Record-only users must have first and last name', 'danger');
+      return;
+    }
+  }
+  
   try {
     const res = await fetch(`/api/users/${id}`, {
       method: 'PATCH',
@@ -932,6 +975,28 @@ function showToast(message, type) {
 document.addEventListener('DOMContentLoaded', async () => {
   await loadUsers();
   await updateGroupStats();
+  
+  // Add dynamic validation for record-only vs login account
+  const emailInput = document.getElementById('create-email');
+  const passwordInput = document.getElementById('create-password');
+  const firstNameInput = document.getElementById('create-first-name');
+  const lastNameInput = document.getElementById('create-last-name');
+  const firstNameRequired = document.getElementById('first-name-required');
+  const lastNameRequired = document.getElementById('last-name-required');
+  
+  function updateRequiredFields() {
+    const hasEmail = emailInput.value.trim();
+    const hasPassword = passwordInput.value.trim();
+    const isRecordOnly = !hasEmail || !hasPassword;
+    
+    // Show/hide required indicators
+    firstNameRequired.style.display = isRecordOnly ? 'inline' : 'none';
+    lastNameRequired.style.display = isRecordOnly ? 'inline' : 'none';
+  }
+  
+  emailInput.addEventListener('input', updateRequiredFields);
+  passwordInput.addEventListener('input', updateRequiredFields);
+  updateRequiredFields(); // Initial state
 });
 </script>
 {% endblock %}

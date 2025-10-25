@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  #tree-container {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 2rem;
+    overflow-x: auto;
+    min-height: 600px;
+  }
+  
+  .tree-generation {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+  
+  .tree-generation-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .tree-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .tree-node {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-width: 180px;
+    text-align: center;
+    position: relative;
+  }
+  
+  .tree-node:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  }
+  
+  .tree-node.current-user {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    border: 3px solid #fff;
+    transform: scale(1.1);
+  }
+  
+  .tree-node.current-user:hover {
+    transform: scale(1.15) translateY(-4px);
+  }
+  
+  .tree-node.spouse {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  }
+  
+  .tree-node-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .tree-node-relation {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    font-style: italic;
+  }
+  
+  .tree-node-dates {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    margin-top: 0.5rem;
+    border-top: 1px solid rgba(255,255,255,0.3);
+    padding-top: 0.5rem;
+    line-height: 1.4;
+  }
+  
+  .tree-node-age {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    margin-top: 0.25rem;
+    font-style: italic;
+  }
+  
+  .tree-node-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.8);
+    margin-bottom: 0.75rem;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  
+  .tree-node-avatar-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .tree-node-avatar-wrapper.deceased::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom right, 
+                                transparent 0%, 
+                                transparent calc(50% - 2px), 
+                                rgba(220, 53, 69, 0.9) calc(50% - 2px), 
+                                rgba(220, 53, 69, 0.9) calc(50% + 2px), 
+                                transparent calc(50% + 2px), 
+                                transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  
+  .tree-node-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .loading-spinner {
+    text-align: center;
+    padding: 3rem;
+  }
+  
+  .no-data {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+  }
+  
+  .generation-connector {
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .generation-connector::before {
+    content: '';
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(102,126,234,0.3) 0%, rgba(102,126,234,0.1) 100%);
+  }
+  
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .legend-box {
+    width: 30px;
+    height: 30px;
+    border-radius: 0.25rem;
+  }
+  
+  .legend-box.current {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border: 2px solid #fff;
+  }
+  
+  .legend-box.ancestor {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  
+  .legend-box.descendant {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  
+  .legend-box.spouse {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  }
+</style>
+
+<div class="page-header fade-in">
+  <h1 class="mb-0"><i class="bi bi-diagram-3"></i> Family Tree</h1>
+  <p class="mb-0 mt-2">Explore your family connections and ancestry</p>
+</div>
+
+<div id="tree-container">
+  <div class="loading-spinner">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-3">Loading your family tree...</p>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-box current"></div>
+    <span>You</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-box ancestor"></div>
+    <span>Ancestors</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-box descendant"></div>
+    <span>Descendants</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-box spouse"></div>
+    <span>Spouse</span>
+  </div>
+</div>
+
+<script>
+// Load and render family tree
+async function loadFamilyTree() {
+  try {
+    const response = await fetch('/api/tree');
+    if (!response.ok) {
+      throw new Error('Failed to load family tree');
+    }
+    
+    const data = await response.json();
+    renderFamilyTree(data);
+  } catch (error) {
+    console.error('Error loading family tree:', error);
+    document.getElementById('tree-container').innerHTML = `
+      <div class="no-data">
+        <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
+        <p class="mt-3">Failed to load family tree. Please try again later.</p>
+      </div>
+    `;
+  }
+}
+
+// Render tree node
+function renderNode(person, isCurrent = false, isSpouse = false) {
+  const nodeClass = isCurrent ? 'current-user' : (isSpouse ? 'spouse' : '');
+  const relation = person.relationship_type ? `(${person.relationship_type})` : '';
+  
+  // Create avatar with deceased overlay if applicable
+  const isDeceased = person.death_date ? 'deceased' : '';
+  const avatarHtml = `
+    <div class="tree-node-avatar-wrapper ${isDeceased}">
+      <img src="${person.gravatar_url}" alt="${person.display_name || person.first_name}" class="tree-node-avatar" />
+    </div>
+  `;
+  
+  // Format dates
+  let datesHtml = '';
+  const dateParts = [];
+  
+  if (person.birthday) {
+    const birthDate = new Date(person.birthday);
+    const birthStr = birthDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    dateParts.push(`<div><i class="bi bi-gift"></i> Born: ${birthStr}</div>`);
+  }
+  
+  if (person.adoption_date) {
+    const adoptDate = new Date(person.adoption_date);
+    const adoptStr = adoptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    dateParts.push(`<div><i class="bi bi-heart"></i> Adopted: ${adoptStr}</div>`);
+  }
+  
+  if (person.death_date) {
+    const deathDate = new Date(person.death_date);
+    const deathStr = deathDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    dateParts.push(`<div><i class="bi bi-flower1"></i> Died: ${deathStr}</div>`);
+  }
+  
+  if (dateParts.length > 0) {
+    datesHtml = `<div class="tree-node-dates">${dateParts.join('')}</div>`;
+  }
+  
+  // Add age if available
+  let ageHtml = '';
+  if (person.age !== null && person.age !== undefined) {
+    const ageLabel = person.death_date ? 'Died at age' : 'Age';
+    ageHtml = `<div class="tree-node-age">${ageLabel}: ${person.age}</div>`;
+  }
+  
+  return `
+    <div class="tree-node ${nodeClass}" onclick="showUserProfile(${person.id})">
+      ${avatarHtml}
+      <div class="tree-node-name">${person.display_name || person.first_name + ' ' + person.last_name}</div>
+      ${relation ? `<div class="tree-node-relation">${relation}</div>` : ''}
+      ${ageHtml}
+      ${datesHtml}
+    </div>
+  `;
+}
+
+// Organize people by generation for clean display
+function organizeByGeneration(people) {
+  const byGen = {};
+  people.forEach(person => {
+    const gen = person.generation || 0;
+    if (!byGen[gen]) byGen[gen] = [];
+    byGen[gen].push(person);
+  });
+  return byGen;
+}
+
+// Render the complete family tree
+function renderFamilyTree(data) {
+  if (!data.root) {
+    document.getElementById('tree-container').innerHTML = `
+      <div class="no-data">
+        <i class="bi bi-info-circle" style="font-size: 3rem; color: #0dcaf0;"></i>
+        <p class="mt-3">No family data available yet. Start by adding family relationships!</p>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = '';
+  
+  // Organize all people by generation
+  const allPeople = [
+    ...(data.ancestors || []),
+    data.root,
+    ...(data.spouse ? [{ ...data.spouse, generation: 0 }] : []),
+    ...(data.siblings || []).map(s => ({ ...s, generation: 0 })),
+    ...(data.descendants || [])
+  ];
+  
+  const byGeneration = organizeByGeneration(allPeople);
+  const generations = Object.keys(byGeneration).map(Number).sort((a, b) => a - b);
+  
+  // Render from oldest ancestors to youngest descendants
+  generations.forEach((gen, index) => {
+    const people = byGeneration[gen];
+    
+    // Generation label
+    let label = '';
+    if (gen < 0) {
+      const absGen = Math.abs(gen);
+      if (absGen === 1) label = 'Parents';
+      else if (absGen === 2) label = 'Grandparents';
+      else if (absGen === 3) label = 'Great-Grandparents';
+      else if (absGen === 4) label = 'Great-Great-Grandparents';
+      else label = `${absGen} Generations Up`;
+    } else if (gen === 0) {
+      label = 'Current Generation';
+    } else if (gen > 0) {
+      if (gen === 1) label = 'Children';
+      else if (gen === 2) label = 'Grandchildren';
+      else if (gen === 3) label = 'Great-Grandchildren';
+      else label = `${gen} Generations Down`;
+    }
+    
+    html += `
+      <div class="tree-generation">
+        <div class="tree-generation-label">${label}</div>
+        <div class="tree-row">
+    `;
+    
+    people.forEach(person => {
+      const isCurrent = person.id === data.root.id;
+      const isSpouse = data.spouse && person.id === data.spouse.id;
+      html += renderNode(person, isCurrent, isSpouse);
+    });
+    
+    html += '</div>';
+    
+    // Add connector to next generation (except for last)
+    if (index < generations.length - 1) {
+      html += '<div class="generation-connector"></div>';
+    }
+    
+    html += '</div>';
+  });
+  
+  document.getElementById('tree-container').innerHTML = html;
+}
+
+// Load tree when page loads
+document.addEventListener('DOMContentLoaded', loadFamilyTree);
+</script>
+{% endblock %}

@@ -38,12 +38,19 @@ def login():
     if form.validate_on_submit():
         sess = current_app.session
         user = sess.scalar(select(User).where(User.email == form.email.data))
-        if user and user.check_password(form.password.data):
-            login_user(user)
-            next_url = request.args.get("next")
-            if next_url and _is_safe_url(next_url):
-                return redirect(next_url)
-            return redirect(url_for("index"))
+        if user:
+            # Check if user is record-only (cannot login)
+            if user.is_record_only:
+                flash("This account is for record-keeping only and cannot be used to login.", "danger")
+                return render_template("auth/login.html", form=form)
+            
+            # Check password
+            if user.check_password(form.password.data):
+                login_user(user)
+                next_url = request.args.get("next")
+                if next_url and _is_safe_url(next_url):
+                    return redirect(next_url)
+                return redirect(url_for("index"))
         flash("Invalid credentials", "danger")
     return render_template("auth/login.html", form=form)
 
@@ -64,7 +71,12 @@ def register():
         if existing:
             flash("User already exists", "warning")
             return render_template("auth/register.html", form=form)
-        user = User(email=form.email.data, display_name=form.display_name.data, password_hash="")
+        user = User(
+            email=form.email.data,
+            display_name=form.display_name.data,
+            password_hash="",
+            is_record_only=False
+        )
         user.set_password(form.password.data)
         # attach default groups
         groups = {g.name: g for g in sess.scalars(select(Group)).all()}

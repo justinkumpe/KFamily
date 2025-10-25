@@ -72,6 +72,11 @@
                 <i class="bi bi-heart-fill"></i> Family
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/tree">
+                <i class="bi bi-diagram-3"></i> Family Tree
+              </a>
+            </li>
           </ul>
           <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
             {% if current_user.is_authenticated %}
@@ -119,6 +124,9 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+
+    <!-- Include user profile modal on all pages -->
+    {% include 'components/user_profile_modal.html' %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/app.js"></script>

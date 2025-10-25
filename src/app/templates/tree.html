@@ -200,6 +200,124 @@
   .legend-symbol.deceased::after {
     transform: translate(-50%, -50%) rotate(-45deg);
   }
+
+  /* Toolbar styles */
+  .genogram-toolbar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .toolbar-divider {
+    width: 1px;
+    background: #dee2e6;
+    margin: 0 0.5rem;
+  }
+
+  /* Side panel styles */
+  .side-panel {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 400px;
+    height: 100vh;
+    background: white;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    transition: right 0.3s ease;
+    z-index: 1050;
+    overflow-y: auto;
+  }
+
+  .side-panel.open {
+    right: 0;
+  }
+
+  .side-panel-header {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .side-panel-body {
+    padding: 1.5rem;
+  }
+
+  .info-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .info-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .info-value {
+    font-size: 1rem;
+    color: #212529;
+  }
+
+  .person-selected {
+    outline: 3px solid #F39C12;
+    outline-offset: 3px;
+  }
+
+  /* Modal improvements */
+  .modal-body .form-label {
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .form-text {
+    font-size: 0.875rem;
+  }
+</style>
+
+<div class="page-header">
+  <h1 class="mb-0">
+    <i class="bi bi-diagram-3"></i> Family Genogram
+  </h1>
+  <p class="mb-0 mt-2">Interactive family tree visualization</p>
+</div>
+
+<!-- Genogram Toolbar -->
+<div class="genogram-toolbar">
+  <div class="toolbar-group">
+    <button class="btn btn-primary" onclick="showAddPartnershipModal()">
+      <i class="bi bi-heart"></i> Add Partnership
+    </button>
+    <button class="btn btn-success" onclick="showAddEventModal()">
+      <i class="bi bi-calendar-event"></i> Add Life Event
+    </button>
+    <button class="btn btn-info" onclick="showAddMedicalModal()">
+      <i class="bi bi-heart-pulse"></i> Add Medical Condition
+    </button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="btn btn-outline-secondary" onclick="resetSelection()">
+      <i class="bi bi-x-circle"></i> Clear Selection
+    </button>
+    <button class="btn btn-outline-secondary" onclick="loadFamilyTree()">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+  </div>
+</div>
   
   .legend-line {
     width: 40px;
@@ -249,6 +367,646 @@
   </div>
 </div>
 
+<!-- Partnership Modal -->
+<div class="modal fade" id="partnershipModal" tabindex="-1" aria-labelledby="partnershipModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="partnershipModalLabel">Add Partnership</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="partnershipForm">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="person1Select" class="form-label">Person 1 *</label>
+              <select class="form-select" id="person1Select" required>
+                <option value="">Select person...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="person2Select" class="form-label">Person 2 *</label>
+              <select class="form-select" id="person2Select" required>
+                <option value="">Select person...</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="relationshipType" class="form-label">Relationship Type *</label>
+              <select class="form-select" id="relationshipType" required>
+                <option value="married">Married</option>
+                <option value="divorced">Divorced</option>
+                <option value="separated">Separated</option>
+                <option value="common_law">Common Law</option>
+                <option value="engaged">Engaged</option>
+                <option value="dating">Dating</option>
+                <option value="former_partner">Former Partner</option>
+                <option value="widowed">Widowed</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="relationshipQuality" class="form-label">Relationship Quality</label>
+              <select class="form-select" id="relationshipQuality">
+                <option value="">Not specified</option>
+                <option value="normal">Normal</option>
+                <option value="close">Close</option>
+                <option value="very_close">Very Close</option>
+                <option value="distant">Distant</option>
+                <option value="estranged">Estranged</option>
+                <option value="conflicted">Conflicted</option>
+                <option value="abusive">Abusive</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="startDate" class="form-label">Start Date</label>
+              <input type="date" class="form-control" id="startDate">
+              <div class="form-text">When did this relationship begin?</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="endDate" class="form-label">End Date</label>
+              <input type="date" class="form-control" id="endDate">
+              <div class="form-text">Leave blank if ongoing</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="location" class="form-label">Location</label>
+            <input type="text" class="form-control" id="location" placeholder="City, State">
+            <div class="form-text">Where did they meet or marry?</div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="hasChildren">
+              <label class="form-check-label" for="hasChildren">
+                This partnership has children
+              </label>
+            </div>
+          </div>
+
+          <div id="custodySection" style="display: none;">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="custodyType" class="form-label">Custody Arrangement</label>
+                <select class="form-select" id="custodyType">
+                  <option value="">Not specified</option>
+                  <option value="joint">Joint Custody</option>
+                  <option value="sole_mother">Sole Custody - Mother</option>
+                  <option value="sole_father">Sole Custody - Father</option>
+                  <option value="primary_mother">Primary Custody - Mother</option>
+                  <option value="primary_father">Primary Custody - Father</option>
+                  <option value="split">Split Custody</option>
+                  <option value="other_guardian">Other Guardian</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="custodyNotes" class="form-label">Custody Notes</label>
+              <textarea class="form-control" id="custodyNotes" rows="2"></textarea>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="partnershipNotes" class="form-label">Notes</label>
+            <textarea class="form-control" id="partnershipNotes" rows="3" placeholder="Additional information about this relationship..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="savePartnership()">Save Partnership</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Life Event Modal -->
+<div class="modal fade" id="lifeEventModal" tabindex="-1" aria-labelledby="lifeEventModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lifeEventModalLabel">Add Life Event</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="lifeEventForm">
+          <div class="mb-3">
+            <label for="eventPerson" class="form-label">Person *</label>
+            <select class="form-select" id="eventPerson" required>
+              <option value="">Select person...</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="eventType" class="form-label">Event Type *</label>
+              <select class="form-select" id="eventType" required>
+                <optgroup label="Life Milestones">
+                  <option value="BIRTH">Birth</option>
+                  <option value="DEATH">Death</option>
+                  <option value="ADOPTION">Adoption</option>
+                </optgroup>
+                <optgroup label="Relationships">
+                  <option value="MARRIAGE">Marriage</option>
+                  <option value="DIVORCE">Divorce</option>
+                  <option value="SEPARATION">Separation</option>
+                  <option value="ENGAGEMENT">Engagement</option>
+                </optgroup>
+                <optgroup label="Family">
+                  <option value="CHILD_BORN">Child Born</option>
+                  <option value="CHILD_ADOPTED">Child Adopted</option>
+                  <option value="GAINED_CUSTODY">Gained Custody</option>
+                  <option value="LOST_CUSTODY">Lost Custody</option>
+                </optgroup>
+                <optgroup label="Education & Career">
+                  <option value="EDUCATION_START">Started Education</option>
+                  <option value="EDUCATION_COMPLETE">Completed Education</option>
+                  <option value="CAREER_START">Started Career</option>
+                  <option value="CAREER_CHANGE">Career Change</option>
+                  <option value="RETIREMENT">Retirement</option>
+                </optgroup>
+                <optgroup label="Health">
+                  <option value="DIAGNOSIS">Diagnosis</option>
+                  <option value="HOSPITALIZATION">Hospitalization</option>
+                  <option value="RECOVERY">Recovery</option>
+                  <option value="SURGERY">Surgery</option>
+                </optgroup>
+                <optgroup label="Legal">
+                  <option value="ARREST">Arrest</option>
+                  <option value="INCARCERATION">Incarceration</option>
+                  <option value="RELEASE">Release</option>
+                </optgroup>
+                <optgroup label="Other">
+                  <option value="RELOCATION">Relocation</option>
+                  <option value="MILITARY_SERVICE">Military Service</option>
+                  <option value="IMMIGRATION">Immigration</option>
+                  <option value="RELIGIOUS_EVENT">Religious Event</option>
+                  <option value="ACHIEVEMENT">Achievement</option>
+                  <option value="TRAUMA">Trauma</option>
+                  <option value="OTHER">Other</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="eventDate" class="form-label">Event Date *</label>
+              <input type="date" class="form-control" id="eventDate" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="eventTitle" class="form-label">Title *</label>
+            <input type="text" class="form-control" id="eventTitle" required placeholder="Brief title for this event">
+          </div>
+
+          <div class="mb-3">
+            <label for="eventDescription" class="form-label">Description</label>
+            <textarea class="form-control" id="eventDescription" rows="3" placeholder="Detailed description..."></textarea>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="eventLocation" class="form-label">Location</label>
+              <input type="text" class="form-control" id="eventLocation" placeholder="City, State">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="eventEndDate" class="form-label">End Date</label>
+              <input type="date" class="form-control" id="eventEndDate">
+              <div class="form-text">For events with duration</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="showOnGenogram" checked>
+              <label class="form-check-label" for="showOnGenogram">
+                Show this event on genogram
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="eventPrivate">
+              <label class="form-check-label" for="eventPrivate">
+                Mark as private
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="saveLifeEvent()">Save Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Medical Condition Modal -->
+<div class="modal fade" id="medicalModal" tabindex="-1" aria-labelledby="medicalModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="medicalModalLabel">Add Medical Condition</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="medicalForm">
+          <div class="mb-3">
+            <label for="medicalPerson" class="form-label">Person *</label>
+            <select class="form-select" id="medicalPerson" required>
+              <option value="">Select person...</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="conditionName" class="form-label">Condition Name *</label>
+            <input type="text" class="form-control" id="conditionName" required placeholder="e.g., Diabetes Type 2">
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="diagnosisDate" class="form-label">Diagnosis Date</label>
+              <input type="date" class="form-control" id="diagnosisDate">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="resolutionDate" class="form-label">Resolution Date</label>
+              <input type="date" class="form-control" id="resolutionDate">
+              <div class="form-text">Leave blank if ongoing</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Condition Attributes</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="isGenetic">
+              <label class="form-check-label" for="isGenetic">
+                Genetic/Hereditary condition
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="isChronic">
+              <label class="form-check-label" for="isChronic">
+                Chronic condition
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="isTerminal">
+              <label class="form-check-label" for="isTerminal">
+                Terminal condition
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="isCauseOfDeath">
+              <label class="form-check-label" for="isCauseOfDeath">
+                Cause of death
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="medicalNotes" class="form-label">Notes</label>
+            <textarea class="form-control" id="medicalNotes" rows="3" placeholder="Additional medical information..."></textarea>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="medicalPrivate" checked>
+              <label class="form-check-label" for="medicalPrivate">
+                Mark as private (medical information defaults to private)
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-info" onclick="saveMedicalCondition()">Save Condition</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Person Detail Side Panel -->
+<div class="side-panel" id="personDetailPanel">
+  <div class="side-panel-header">
+    <h5 class="mb-0" id="panelPersonName">Person Details</h5>
+    <button type="button" class="btn-close btn-close-white" onclick="closePersonPanel()"></button>
+  </div>
+  <div class="side-panel-body" id="personDetailBody">
+    <!-- Content populated by JavaScript -->
+  </div>
+</div>
+
+<script>
+// Global state
+let selectedPerson1 = null;
+let selectedPerson2 = null;
+let allPeople = {};
+let currentTreeData = null;
+
+// Toggle custody section based on checkbox
+document.addEventListener('DOMContentLoaded', () => {
+  const hasChildrenCheckbox = document.getElementById('hasChildren');
+  if (hasChildrenCheckbox) {
+    hasChildrenCheckbox.addEventListener('change', (e) => {
+      document.getElementById('custodySection').style.display = e.target.checked ? 'block' : 'none';
+    });
+  }
+});
+
+// Person selection functions
+function resetSelection() {
+  selectedPerson1 = null;
+  selectedPerson2 = null;
+  document.querySelectorAll('.person-selected').forEach(el => {
+    el.classList.remove('person-selected');
+  });
+}
+
+function selectPerson(personId) {
+  const personElement = document.querySelector(`[data-person-id="${personId}"]`);
+  if (!personElement) return;
+
+  if (!selectedPerson1) {
+    selectedPerson1 = personId;
+    personElement.classList.add('person-selected');
+  } else if (!selectedPerson2 && selectedPerson1 !== personId) {
+    selectedPerson2 = personId;
+    personElement.classList.add('person-selected');
+    // Auto-open partnership modal if two people selected
+    showAddPartnershipModal();
+  }
+}
+
+// Modal functions
+function showAddPartnershipModal() {
+  populatePersonSelects();
+  if (selectedPerson1) document.getElementById('person1Select').value = selectedPerson1;
+  if (selectedPerson2) document.getElementById('person2Select').value = selectedPerson2;
+  new bootstrap.Modal(document.getElementById('partnershipModal')).show();
+}
+
+function showAddEventModal() {
+  populatePersonSelect('eventPerson');
+  new bootstrap.Modal(document.getElementById('lifeEventModal')).show();
+}
+
+function showAddMedicalModal() {
+  populatePersonSelect('medicalPerson');
+  new bootstrap.Modal(document.getElementById('medicalModal')).show();
+}
+
+function populatePersonSelects() {
+  const select1 = document.getElementById('person1Select');
+  const select2 = document.getElementById('person2Select');
+  select1.innerHTML = '<option value="">Select person...</option>';
+  select2.innerHTML = '<option value="">Select person...</option>';
+  
+  Object.keys(allPeople).forEach(id => {
+    const person = allPeople[id];
+    const name = `${person.first_name} ${person.last_name}`;
+    select1.innerHTML += `<option value="${id}">${name}</option>`;
+    select2.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+}
+
+function populatePersonSelect(selectId) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = '<option value="">Select person...</option>';
+  
+  Object.keys(allPeople).forEach(id => {
+    const person = allPeople[id];
+    const name = `${person.first_name} ${person.last_name}`;
+    select.innerHTML += `<option value="${id}">${name}</option>`;
+  });
+}
+
+// Save functions
+async function savePartnership() {
+  const form = document.getElementById('partnershipForm');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = {
+    person1_id: parseInt(document.getElementById('person1Select').value),
+    person2_id: parseInt(document.getElementById('person2Select').value),
+    relationship_type: document.getElementById('relationshipType').value,
+    relationship_quality: document.getElementById('relationshipQuality').value || null,
+    start_date: document.getElementById('startDate').value || null,
+    end_date: document.getElementById('endDate').value || null,
+    location: document.getElementById('location').value || null,
+    has_children: document.getElementById('hasChildren').checked,
+    custody_type: document.getElementById('custodyType').value || null,
+    custody_notes: document.getElementById('custodyNotes').value || null,
+    notes: document.getElementById('partnershipNotes').value || null
+  };
+
+  try {
+    const response = await fetch('/api/partnerships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to save partnership');
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('partnershipModal')).hide();
+    form.reset();
+    resetSelection();
+    loadFamilyTree(); // Refresh the genogram
+    
+    // Show success message
+    showToast('Partnership saved successfully!', 'success');
+  } catch (error) {
+    console.error('Error saving partnership:', error);
+    showToast(error.message, 'danger');
+  }
+}
+
+async function saveLifeEvent() {
+  const form = document.getElementById('lifeEventForm');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = {
+    user_id: parseInt(document.getElementById('eventPerson').value),
+    event_type: document.getElementById('eventType').value,
+    title: document.getElementById('eventTitle').value,
+    description: document.getElementById('eventDescription').value || null,
+    event_date: document.getElementById('eventDate').value,
+    end_date: document.getElementById('eventEndDate').value || null,
+    location: document.getElementById('eventLocation').value || null,
+    show_on_genogram: document.getElementById('showOnGenogram').checked,
+    is_private: document.getElementById('eventPrivate').checked
+  };
+
+  try {
+    const response = await fetch('/api/life-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to save life event');
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('lifeEventModal')).hide();
+    form.reset();
+    loadFamilyTree();
+    showToast('Life event saved successfully!', 'success');
+  } catch (error) {
+    console.error('Error saving life event:', error);
+    showToast(error.message, 'danger');
+  }
+}
+
+async function saveMedicalCondition() {
+  const form = document.getElementById('medicalForm');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = {
+    user_id: parseInt(document.getElementById('medicalPerson').value),
+    condition_name: document.getElementById('conditionName').value,
+    diagnosis_date: document.getElementById('diagnosisDate').value || null,
+    resolution_date: document.getElementById('resolutionDate').value || null,
+    is_genetic: document.getElementById('isGenetic').checked,
+    is_chronic: document.getElementById('isChronic').checked,
+    is_terminal: document.getElementById('isTerminal').checked,
+    is_cause_of_death: document.getElementById('isCauseOfDeath').checked,
+    notes: document.getElementById('medicalNotes').value || null,
+    is_private: document.getElementById('medicalPrivate').checked
+  };
+
+  try {
+    const response = await fetch('/api/medical-conditions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to save medical condition');
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('medicalModal')).hide();
+    form.reset();
+    loadFamilyTree();
+    showToast('Medical condition saved successfully!', 'success');
+  } catch (error) {
+    console.error('Error saving medical condition:', error);
+    showToast(error.message, 'danger');
+  }
+}
+
+// Person detail panel
+function showPersonDetails(personId) {
+  const person = allPeople[personId];
+  if (!person) return;
+
+  document.getElementById('panelPersonName').textContent = `${person.first_name} ${person.last_name}`;
+  
+  let html = `
+    <div class="info-group">
+      <div class="info-label">Full Name</div>
+      <div class="info-value">${person.first_name} ${person.last_name}</div>
+    </div>
+  `;
+
+  if (person.date_of_birth) {
+    html += `
+      <div class="info-group">
+        <div class="info-label">Date of Birth</div>
+        <div class="info-value">${person.date_of_birth}</div>
+      </div>
+    `;
+  }
+
+  if (person.gender) {
+    html += `
+      <div class="info-group">
+        <div class="info-label">Gender</div>
+        <div class="info-value">${person.gender}</div>
+      </div>
+    `;
+  }
+
+  html += `
+    <hr>
+    <div class="d-grid gap-2">
+      <button class="btn btn-outline-primary" onclick="selectPerson(${personId})">
+        <i class="bi bi-check-circle"></i> Select for Partnership
+      </button>
+      <button class="btn btn-outline-success" onclick="showAddEventModalFor(${personId})">
+        <i class="bi bi-calendar-event"></i> Add Life Event
+      </button>
+      <button class="btn btn-outline-info" onclick="showAddMedicalModalFor(${personId})">
+        <i class="bi bi-heart-pulse"></i> Add Medical Condition
+      </button>
+    </div>
+  `;
+
+  document.getElementById('personDetailBody').innerHTML = html;
+  document.getElementById('personDetailPanel').classList.add('open');
+}
+
+function closePersonPanel() {
+  document.getElementById('personDetailPanel').classList.remove('open');
+}
+
+function showAddEventModalFor(personId) {
+  closePersonPanel();
+  populatePersonSelect('eventPerson');
+  document.getElementById('eventPerson').value = personId;
+  new bootstrap.Modal(document.getElementById('lifeEventModal')).show();
+}
+
+function showAddMedicalModalFor(personId) {
+  closePersonPanel();
+  populatePersonSelect('medicalPerson');
+  document.getElementById('medicalPerson').value = personId;
+  new bootstrap.Modal(document.getElementById('medicalModal')).show();
+}
+
+// Toast notifications
+function showToast(message, type = 'info') {
+  const toastHtml = `
+    <div class="toast align-items-center text-white bg-${type} border-0" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  `;
+  
+  const container = document.createElement('div');
+  container.innerHTML = toastHtml;
+  document.body.appendChild(container);
+  
+  const toastElement = container.querySelector('.toast');
+  const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+  toast.show();
+  
+  toastElement.addEventListener('hidden.bs.toast', () => {
+    container.remove();
+  });
+}
+
 <script>
 // Genogram constants
 const SYMBOL_SIZE = 40;
@@ -291,8 +1049,14 @@ function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   g.setAttribute('class', `genogram-person ${isCurrent ? 'current-user' : ''}`);
   g.setAttribute('data-id', person.id);
+  g.setAttribute('data-person-id', person.id);
   g.style.cursor = 'pointer';
-  g.onclick = () => window.location.href = `/users/${person.id}`;
+  
+  // Click to show person details
+  g.onclick = (e) => {
+    e.preventDefault();
+    showPersonDetails(person.id);
+  };
   
   let shape;
   
@@ -506,6 +1270,10 @@ function drawParentChildLine(svg, parentX, parentY, childX, childY) {
 // Render the genogram
 function renderGenogram(data) {
   console.log('Starting renderGenogram with data:', data);
+  
+  // Store globally for modals and person selection
+  allPeople = data.people;
+  currentTreeData = data;
   
   if (!data.people || Object.keys(data.people).length === 0) {
     document.getElementById('tree-container').innerHTML = `

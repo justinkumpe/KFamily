@@ -235,6 +235,15 @@ def get_extended_family(user_id: int, sess):
             extended['aunts_uncles'].append(user_data)
         elif rel.relationship_type in ['niece', 'nephew']:
             user_data['generation'] = 1
+            # Find the parent (sibling) who has this niece/nephew as a child
+            parent_rel = sess.scalar(
+                select(UserRelationship).where(
+                    UserRelationship.user_id == rel.related_user_id,
+                    UserRelationship.relationship_type.in_(['father', 'mother', 'parent'])
+                )
+            )
+            if parent_rel:
+                user_data['parent_id'] = parent_rel.related_user_id
             extended['nieces_nephews'].append(user_data)
         elif rel.relationship_type == 'cousin':
             user_data['generation'] = 0
@@ -255,6 +264,79 @@ def get_extended_family(user_id: int, sess):
             extended['in_laws'].append(user_data)
     
     return extended
+
+
+def build_complete_family_network(root_user_id: int, sess):
+    """
+    Build a complete family network starting from a root user.
+    Returns all people in the network with their actual parent-child relationships.
+    """
+    visited = set()
+    people = {}
+    relationships = []  # List of (parent_id, child_id) tuples
+    
+    def get_person_data(user):
+        """Convert user to dictionary format."""
+        return {
+            'id': user.id,
+            'display_name': user.display_name,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'sex': user.sex,
+            'birthday': user.birthday.isoformat() if user.birthday else None,
+            'adoption_date': user.adoption_date.isoformat() if user.adoption_date else None,
+            'death_date': user.death_date.isoformat() if user.death_date else None,
+            'age': user.age,
+            'gravatar_url': user.gravatar_url(size=120),
+        }
+    
+    def explore_network(user_id, depth=0, max_depth=5):
+        """Recursively explore the family network."""
+        if user_id in visited or depth > max_depth:
+            return
+        
+        visited.add(user_id)
+        user = sess.get(User, user_id)
+        if not user:
+            return
+        
+        # Add this person to our people dict
+        people[user_id] = get_person_data(user)
+        
+        # Get all relationships for this user
+        all_rels = sess.scalars(
+            select(UserRelationship).where(UserRelationship.user_id == user_id)
+        ).all()
+        
+        for rel in all_rels:
+            related_id = rel.related_user_id
+            
+            # Track parent-child relationships
+            if rel.relationship_type in ['father', 'mother', 'parent', 
+                                         'adoptive-father', 'adoptive-mother', 'adoptive-parent']:
+                # This person's parent
+                relationships.append((related_id, user_id))
+                explore_network(related_id, depth + 1, max_depth)
+            
+            elif rel.relationship_type in ['son', 'daughter', 'child']:
+                # This person's child
+                relationships.append((user_id, related_id))
+                explore_network(related_id, depth + 1, max_depth)
+            
+            # Also explore siblings, spouses to get complete network
+            elif rel.relationship_type in ['brother', 'sister', 'sibling', 
+                                          'husband', 'wife', 'spouse',
+                                          'aunt', 'uncle', 'niece', 'nephew', 'cousin']:
+                explore_network(related_id, depth + 1, max_depth)
+    
+    # Start exploration from root user
+    explore_network(root_user_id)
+    
+    return {
+        'people': people,
+        'relationships': relationships,  # List of (parent_id, child_id) tuples
+        'root_id': root_user_id
+    }
 
 
 @tree_bp.get("/test")
@@ -281,35 +363,16 @@ def get_family_tree():
             print("ERROR: User not found")
             return jsonify({"error": "User not found"}), 404
         
-        print("Getting extended family...")
-        # Get extended family
-        extended = get_extended_family(user.id, sess)
-        print(f"Extended family retrieved: {len(extended['aunts_uncles'])} aunts/uncles, {len(extended['nieces_nephews'])} nieces/nephews")
+        print("Building complete family network...")
+        # Build complete family network
+        network = build_complete_family_network(user.id, sess)
         
-        print("Building tree data...")
+        print(f"Network built: {len(network['people'])} people, {len(network['relationships'])} parent-child relationships")
+        
         tree_data = {
-            'root': {
-                'id': user.id,
-                'display_name': user.display_name,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'sex': user.sex,
-                'birthday': user.birthday.isoformat() if user.birthday else None,
-                'adoption_date': user.adoption_date.isoformat() if user.adoption_date else None,
-                'death_date': user.death_date.isoformat() if user.death_date else None,
-                'age': user.age,
-                'gravatar_url': user.gravatar_url(size=120),
-                'generation': 0,
-            },
-            'ancestors': get_ancestors(user.id, sess),
-            'descendants': get_descendants(user.id, sess),
-            'siblings': get_siblings(user.id, sess),
-            'spouse': get_spouse(user.id, sess),
-            'aunts_uncles': extended['aunts_uncles'],
-            'nieces_nephews': extended['nieces_nephews'],
-            'cousins': extended['cousins'],
-            'grandchildren': extended['grandchildren'],
-            'in_laws': extended['in_laws'],
+            'root_id': user.id,
+            'people': network['people'],
+            'relationships': network['relationships'],  # List of [parent_id, child_id] arrays
         }
         
         print("Returning tree data as JSON...")

@@ -297,7 +297,7 @@ function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
   let shape;
   
   // Draw shape based on gender
-  if (person.sex === 'M') {
+  if (person.sex === 'male' || person.sex === 'M') {
     // Male - Square
     shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     shape.setAttribute('x', x - SYMBOL_SIZE/2);
@@ -305,7 +305,7 @@ function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
     shape.setAttribute('width', SYMBOL_SIZE);
     shape.setAttribute('height', SYMBOL_SIZE);
     shape.setAttribute('class', 'person-shape male-symbol');
-  } else if (person.sex === 'F') {
+  } else if (person.sex === 'female' || person.sex === 'F') {
     // Female - Circle
     shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     shape.setAttribute('cx', x);
@@ -412,7 +412,7 @@ function drawParentChildLine(svg, parentX, parentY, childX, childY) {
 function renderGenogram(data) {
   console.log('Starting renderGenogram with data:', data);
   
-  if (!data.root) {
+  if (!data.people || Object.keys(data.people).length === 0) {
     document.getElementById('tree-container').innerHTML = `
       <div class="no-data">
         <i class="bi bi-info-circle" style="font-size: 3rem; color: #0dcaf0;"></i>
@@ -426,68 +426,62 @@ function renderGenogram(data) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('id', 'genogram-svg');
   
-  // Organize people by generation
+  // Calculate generations for each person
   const generations = {};
-  const positionMap = {}; // Map person ID to {x, y}
+  const personGeneration = {};
+  const positionMap = {};
   
-  // Collect all people and organize by generation
-  function addPerson(person, generation) {
-    if (!generations[generation]) generations[generation] = [];
-    // Avoid duplicates
-    if (!generations[generation].find(p => p.id === person.id)) {
-      generations[generation].push({...person, generation});
+  // Assign generation 0 to root user
+  personGeneration[data.root_id] = 0;
+  
+  // Build parent-child maps
+  const childrenOf = {};  // parent_id -> [child_ids]
+  const parentsOf = {};   // child_id -> [parent_ids]
+  
+  data.relationships.forEach(rel => {
+    const [parentId, childId] = rel;
+    if (!childrenOf[parentId]) childrenOf[parentId] = [];
+    if (!parentsOf[childId]) parentsOf[childId] = [];
+    childrenOf[parentId].push(childId);
+    parentsOf[childId].push(parentId);
+  });
+  
+  // Assign generations using BFS from root
+  const queue = [data.root_id];
+  const visited = new Set([data.root_id]);
+  
+  while (queue.length > 0) {
+    const personId = queue.shift();
+    const gen = personGeneration[personId];
+    
+    // Process parents (generation -1)
+    if (parentsOf[personId]) {
+      parentsOf[personId].forEach(parentId => {
+        if (!visited.has(parentId)) {
+          personGeneration[parentId] = gen - 1;
+          visited.add(parentId);
+          queue.push(parentId);
+        }
+      });
+    }
+    
+    // Process children (generation +1)
+    if (childrenOf[personId]) {
+      childrenOf[personId].forEach(childId => {
+        if (!visited.has(childId)) {
+          personGeneration[childId] = gen + 1;
+          visited.add(childId);
+          queue.push(childId);
+        }
+      });
     }
   }
   
-  // Add root user
-  addPerson(data.root, 0);
-  
-  // Add spouse if exists
-  if (data.spouse) addPerson(data.spouse, 0);
-  
-  // Add siblings
-  (data.siblings || []).forEach(s => addPerson(s, 0));
-  
-  // Add cousins
-  (data.cousins || []).forEach(c => addPerson(c, 0));
-  
-  // Add parents and ancestors
-  function addAncestors(ancestors, baseGen) {
-    ancestors.forEach(ancestor => {
-      const gen = ancestor.generation || baseGen;
-      addPerson(ancestor, gen);
-      if (ancestor.parents) {
-        addAncestors(ancestor.parents, gen - 1);
-      }
-    });
-  }
-  if (data.ancestors) addAncestors(data.ancestors, -1);
-  
-  // Add aunts/uncles
-  (data.aunts_uncles || []).forEach(au => addPerson(au, -1));
-  
-  // Add children and descendants
-  function addDescendants(descendants, baseGen) {
-    descendants.forEach(descendant => {
-      const gen = descendant.generation || baseGen;
-      addPerson(descendant, gen);
-      if (descendant.children) {
-        addDescendants(descendant.children, gen + 1);
-      }
-    });
-  }
-  if (data.descendants) addDescendants(data.descendants, 1);
-  
-  // Add nieces/nephews
-  (data.nieces_nephews || []).forEach(nn => addPerson(nn, 1));
-  
-  // Add grandchildren
-  (data.grandchildren || []).forEach(gc => addPerson(gc, 2));
-  
-  // Add in-laws (categorized by generation already)
-  (data.in_laws || []).forEach(il => {
-    const gen = il.generation !== undefined ? il.generation : 0;
-    addPerson(il, gen);
+  // Organize people by generation
+  Object.keys(data.people).forEach(personId => {
+    const gen = personGeneration[personId] || 0;
+    if (!generations[gen]) generations[gen] = [];
+    generations[gen].push(data.people[personId]);
   });
   
   // Calculate positions
@@ -515,49 +509,23 @@ function renderGenogram(data) {
   svg.setAttribute('height', svgHeight);
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
   
-  // Draw connections first (so they appear behind symbols)
-  // Draw marriage lines
-  if (data.spouse && positionMap[data.root.id] && positionMap[data.spouse.id]) {
-    const rootPos = positionMap[data.root.id];
-    const spousePos = positionMap[data.spouse.id];
-    drawMarriageLine(svg, rootPos.x + SYMBOL_SIZE/2, rootPos.y, spousePos.x - SYMBOL_SIZE/2, spousePos.y);
-  }
-  
-  // Draw parent-child lines
-  function drawDescendantLines(descendants) {
-    descendants.forEach(descendant => {
-      const parentPos = positionMap[data.root.id];
-      const childPos = positionMap[descendant.id];
-      if (parentPos && childPos) {
-        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
-      }
-      if (descendant.children) {
-        drawDescendantLines(descendant.children);
-      }
-    });
-  }
-  if (data.descendants) drawDescendantLines(data.descendants);
-  
-  // Draw ancestor-child lines
-  if (data.ancestors) {
-    data.ancestors.forEach(ancestor => {
-      const parentPos = positionMap[ancestor.id];
-      const childPos = positionMap[data.root.id];
-      if (parentPos && childPos) {
-        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
-      }
-    });
-  }
+  // Draw parent-child connection lines
+  data.relationships.forEach(rel => {
+    const [parentId, childId] = rel;
+    const parentPos = positionMap[parentId];
+    const childPos = positionMap[childId];
+    if (parentPos && childPos) {
+      drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+    }
+  });
   
   // Draw all people
-  genKeys.forEach(gen => {
-    const people = generations[gen];
-    people.forEach(person => {
-      const pos = positionMap[person.id];
-      if (pos) {
-        drawPersonSymbol(svg, pos.x, pos.y, person, person.id === data.root.id);
-      }
-    });
+  Object.keys(data.people).forEach(personId => {
+    const person = data.people[personId];
+    const pos = positionMap[personId];
+    if (pos) {
+      drawPersonSymbol(svg, pos.x, pos.y, person, parseInt(personId) === data.root_id);
+    }
   });
   
   // Replace container content with SVG

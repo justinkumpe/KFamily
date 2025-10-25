@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}User Details - KFamily{% endblock %}
+
+{% block head %}
+<style>
+  .profile-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  
+  .profile-avatar-large {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 5px solid rgba(255,255,255,0.9);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    object-fit: cover;
+  }
+  
+  .profile-avatar-wrapper-large {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .profile-avatar-wrapper-large.deceased::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom right, 
+                                transparent 0%, 
+                                transparent calc(50% - 3px), 
+                                rgba(220, 53, 69, 0.9) calc(50% - 3px), 
+                                rgba(220, 53, 69, 0.9) calc(50% + 3px), 
+                                transparent calc(50% + 3px), 
+                                transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  
+  .editable-field {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .editable-field:hover .edit-icon {
+    opacity: 1;
+  }
+  
+  .edit-icon {
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    margin-left: 0.5rem;
+    color: #667eea;
+  }
+  
+  .field-editing {
+    background-color: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 2px solid #667eea;
+  }
+  
+  .edit-field-container {
+    display: inline-block;
+    min-width: 150px;
+  }
+  
+  .edit-field-container.editing {
+    display: block;
+  }
+  
+  .edit-actions {
+    margin-top: 0.5rem;
+  }
+  
+  .edit-mode .editable-field {
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+  
+  .edit-mode .editable-field:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .edit-mode .edit-icon {
+    opacity: 0.6;
+  }
+  
+  .timeline-container {
+    position: relative;
+  }
+  
+  .timeline-item {
+    position: relative;
+    padding-left: 60px;
+    padding-bottom: 2rem;
+    border-left: 2px solid #e0e0e0;
+    margin-left: 20px;
+  }
+  
+  .timeline-item:last-child {
+    border-left-color: transparent;
+  }
+  
+  .timeline-icon {
+    position: absolute;
+    left: -22px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+  }
+  
+  .timeline-icon.birth {
+    border-color: #28a745;
+    color: #28a745;
+  }
+  
+  .timeline-icon.adoption {
+    border-color: #dc3545;
+    color: #dc3545;
+  }
+  
+  .timeline-icon.death {
+    border-color: #6c757d;
+    color: #6c757d;
+  }
+  
+  .timeline-icon.default {
+    border-color: #667eea;
+    color: #667eea;
+  }
+  
+  .timeline-date {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+  }
+  
+  .timeline-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  
+  .timeline-description {
+    color: #6c757d;
+  }
+  
+  .visibility-badge {
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+  }
+  
+  .info-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+  }
+  
+  .info-card-title {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Loading State -->
+  <div id="loading-state" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-3">Loading user details...</p>
+  </div>
+  
+  <!-- Error State -->
+  <div id="error-state" style="display: none;" class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle"></i> <span id="error-message"></span>
+  </div>
+  
+  <!-- User Detail Content -->
+  <div id="user-content" style="display: none;">
+    <!-- Profile Header -->
+    <div class="profile-header">
+      <div class="row align-items-center">
+        <div class="col-auto">
+          <div id="header-avatar-wrapper" class="profile-avatar-wrapper-large">
+            <img id="header-avatar" src="" alt="User Avatar" class="profile-avatar-large" />
+          </div>
+        </div>
+        <div class="col">
+          <h1 class="mb-1"><span id="header-display-name"></span></h1>
+          <p class="mb-0 opacity-75" id="header-subtitle"></p>
+          <div id="header-badges" class="mt-2"></div>
+        </div>
+        <div class="col-auto">
+          <button id="edit-mode-btn" class="btn btn-light" style="display: none;" onclick="toggleEditMode()">
+            <i class="bi bi-pencil"></i> <span id="edit-mode-text">Edit</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4" id="userDetailTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+          <i class="bi bi-person-fill"></i> Overview
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline" type="button" role="tab">
+          <i class="bi bi-clock-history"></i> Timeline
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link disabled" id="future-tab" data-bs-toggle="tab" data-bs-target="#future" type="button" role="tab">
+          <i class="bi bi-three-dots"></i> More (Coming Soon)
+        </button>
+      </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content" id="userDetailTabContent">
+      <!-- Overview Tab -->
+      <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="info-card">
+              <h5 class="info-card-title"><i class="bi bi-person-fill"></i> Personal Information</h5>
+              <div class="mb-3">
+                <strong>Display Name:</strong> 
+                <span class="edit-field-container" data-field="display_name">
+                  <span class="editable-field" id="overview-display-name"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>First Name:</strong> 
+                <span class="edit-field-container" data-field="first_name">
+                  <span class="editable-field" id="overview-first-name"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Middle Name:</strong> 
+                <span class="edit-field-container" data-field="middle_name">
+                  <span class="editable-field" id="overview-middle-name"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Last Name:</strong> 
+                <span class="edit-field-container" data-field="last_name">
+                  <span class="editable-field" id="overview-last-name"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Email:</strong> 
+                <span class="edit-field-container" data-field="email">
+                  <span class="editable-field" id="overview-email"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Sex:</strong> 
+                <span class="edit-field-container" data-field="sex">
+                  <span class="editable-field" id="overview-sex"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Gender:</strong> 
+                <span class="edit-field-container" data-field="gender">
+                  <span class="editable-field" id="overview-gender"></span>
+                </span>
+              </div>
+              <div class="mb-0">
+                <strong>Age:</strong> <span id="overview-age"></span>
+              </div>
+            </div>
+            
+            <div class="info-card">
+              <h5 class="info-card-title"><i class="bi bi-telephone-fill"></i> Contact Information</h5>
+              <div class="mb-3">
+                <strong>Phone:</strong> 
+                <span class="edit-field-container" data-field="phone">
+                  <span class="editable-field" id="overview-phone"></span>
+                </span>
+              </div>
+              <div class="mb-0">
+                <strong>Address:</strong> 
+                <span class="edit-field-container" data-field="address">
+                  <span class="editable-field" id="overview-address"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <div class="info-card">
+              <h5 class="info-card-title"><i class="bi bi-calendar-event"></i> Important Dates</h5>
+              <div class="mb-3">
+                <strong>Birthday:</strong> 
+                <span class="edit-field-container" data-field="birthday">
+                  <span class="editable-field" id="overview-birthday"></span>
+                </span>
+              </div>
+              <div class="mb-3">
+                <strong>Adoption Date:</strong> 
+                <span class="edit-field-container" data-field="adoption_date">
+                  <span class="editable-field" id="overview-adoption-date"></span>
+                </span>
+              </div>
+              <div class="mb-0">
+                <strong>Death Date:</strong> 
+                <span class="edit-field-container" data-field="death_date">
+                  <span class="editable-field" id="overview-death-date"></span>
+                </span>
+              </div>
+            </div>
+            
+            <div class="info-card">
+              <h5 class="info-card-title"><i class="bi bi-house-fill"></i> Households</h5>
+              <div id="overview-households"></div>
+            </div>
+            
+            <div class="info-card">
+              <h5 class="info-card-title"><i class="bi bi-people-fill"></i> Family Relationships</h5>
+              <div id="overview-relationships"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Timeline Tab -->
+      <div class="tab-pane fade" id="timeline" role="tabpanel">
+        <div class="row">
+          <div class="col-lg-8 offset-lg-2">
+            <div id="timeline-loading" class="text-center py-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading timeline...</span>
+              </div>
+            </div>
+            
+            <div id="timeline-content" style="display: none;">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class="bi bi-clock-history"></i> Life Timeline</h4>
+                <button id="add-event-btn" class="btn btn-primary btn-sm" style="display: none;">
+                  <i class="bi bi-plus-lg"></i> Add Event
+                </button>
+              </div>
+              
+              <div class="timeline-container" id="timeline-items">
+                <!-- Timeline items will be inserted here -->
+              </div>
+              
+              <div id="timeline-empty" style="display: none;" class="text-center text-muted py-5">
+                <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
+                <p class="mt-3">No timeline events yet.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Future Tab -->
+      <div class="tab-pane fade" id="future" role="tabpanel">
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-tools" style="font-size: 3rem;"></i>
+          <p class="mt-3">Additional features coming soon...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const userId = {{ user_id }};
+const currentUserId = {{ current_user_id }};
+let userProfile = null;
+let canEdit = false;
+let isEditMode = false;
+let currentlyEditing = null;
+
+// Field type definitions for proper input rendering
+const fieldTypes = {
+  email: 'email',
+  phone: 'tel',
+  birthday: 'date',
+  adoption_date: 'date',
+  death_date: 'date',
+  sex: 'select',
+  gender: 'text',
+  display_name: 'text',
+  first_name: 'text',
+  middle_name: 'text',
+  last_name: 'text',
+  address: 'textarea',
+}
+
+const selectOptions = {
+  sex: ['Male', 'Female', 'Other'],
+}
+
+// Load user profile on page load
+document.addEventListener('DOMContentLoaded', async function() {
+  await loadUserProfile();
+});
+
+// Load user profile data
+async function loadUserProfile() {
+  try {
+    const res = await fetch(`/api/users/${userId}/profile`);
+    if (!res.ok) {
+      throw new Error(res.status === 404 ? 'User not found' : 'Failed to load user profile');
+    }
+    
+    userProfile = await res.json();
+    canEdit = userProfile.can_edit;
+    
+    renderProfileHeader();
+    renderOverviewTab();
+    
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('user-content').style.display = 'block';
+    
+  } catch (error) {
+    console.error('Error loading user profile:', error);
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-state').style.display = 'block';
+    document.getElementById('error-message').textContent = error.message;
+  }
+}
+
+// Render profile header
+function renderProfileHeader() {
+  const avatar = document.getElementById('header-avatar');
+  const avatarWrapper = document.getElementById('header-avatar-wrapper');
+  avatar.src = userProfile.gravatar_url;
+  avatar.alt = userProfile.display_name || userProfile.first_name || 'User Avatar';
+  
+  if (userProfile.death_date) {
+    avatarWrapper.classList.add('deceased');
+  }
+  
+  document.getElementById('header-display-name').textContent = userProfile.display_name || userProfile.email;
+  
+  const fullName = [userProfile.first_name, userProfile.middle_name, userProfile.last_name]
+    .filter(Boolean).join(' ');
+  if (fullName && fullName !== userProfile.display_name) {
+    document.getElementById('header-subtitle').textContent = fullName;
+  }
+  
+  const badgesHtml = [];
+  if (userProfile.is_record_only) {
+    badgesHtml.push('<span class="badge bg-warning text-dark"><i class="bi bi-info-circle"></i> Record Only</span>');
+  }
+  if (userProfile.age !== null) {
+    const ageLabel = userProfile.death_date ? `Died at age ${userProfile.age}` : `Age ${userProfile.age}`;
+    badgesHtml.push(`<span class="badge bg-info">${ageLabel}</span>`);
+  }
+  document.getElementById('header-badges').innerHTML = badgesHtml.join(' ');
+  
+  if (canEdit) {
+    document.getElementById('edit-mode-btn').style.display = 'block';
+  }
+}
+
+// Render overview tab
+function renderOverviewTab() {
+  // Personal Information fields
+  setFieldValue('overview-display-name', userProfile.display_name);
+  setFieldValue('overview-first-name', userProfile.first_name);
+  setFieldValue('overview-middle-name', userProfile.middle_name);
+  setFieldValue('overview-last-name', userProfile.last_name);
+  setFieldValue('overview-email', userProfile.email);
+  setFieldValue('overview-sex', userProfile.sex);
+  setFieldValue('overview-gender', userProfile.gender);
+  
+  document.getElementById('overview-age').textContent = 
+    userProfile.age !== null ? `${userProfile.age} years old` : '-';
+  
+  // Contact Information fields
+  setFieldValue('overview-phone', userProfile.phone);
+  setFieldValue('overview-address', userProfile.address);
+  
+  // Important Dates fields
+  setFieldValue('overview-birthday', userProfile.birthday);
+  setFieldValue('overview-adoption-date', userProfile.adoption_date);
+  setFieldValue('overview-death-date', userProfile.death_date);
+  
+  // Households
+  const householdsDiv = document.getElementById('overview-households');
+  if (userProfile.households && userProfile.households.length > 0) {
+    householdsDiv.innerHTML = userProfile.households.map(h => `
+      <div class="mb-2">
+        <strong>${h.name}</strong> 
+        <span class="badge bg-info">${h.role}</span>
+        ${h.joined_date ? `<br><small class="text-muted">Joined: ${h.joined_date}</small>` : ''}
+      </div>
+    `).join('');
+  } else {
+    householdsDiv.innerHTML = '<p class="text-muted mb-0">No household memberships</p>';
+  }
+  
+  // Relationships
+  const relationshipsDiv = document.getElementById('overview-relationships');
+  if (userProfile.relationships && userProfile.relationships.length > 0) {
+    relationshipsDiv.innerHTML = userProfile.relationships.map(r => `
+      <div class="mb-2">
+        <strong>${r.relationship_type}</strong> → 
+        <a href="/users/${r.related_user_id}">${r.related_user_name}</a>
+        ${r.notes ? `<br><small class="text-muted">${r.notes}</small>` : ''}
+      </div>
+    `).join('');
+  } else {
+    relationshipsDiv.innerHTML = '<p class="text-muted mb-0">No family relationships</p>';
+  }
+  
+  // Setup edit mode click handlers if user can edit
+  if (canEdit) {
+    setupEditHandlers();
+  }
+}
+
+// Helper function to set field values with proper empty state
+function setFieldValue(elementId, value) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.textContent = value || '-';
+    element.setAttribute('data-value', value || '');
+  }
+}
+
+// Toggle edit mode
+function toggleEditMode() {
+  isEditMode = !isEditMode;
+  const overviewTab = document.getElementById('overview');
+  const editModeText = document.getElementById('edit-mode-text');
+  
+  if (isEditMode) {
+    overviewTab.classList.add('edit-mode');
+    editModeText.textContent = 'Done';
+  } else {
+    overviewTab.classList.remove('edit-mode');
+    editModeText.textContent = 'Edit';
+    // Cancel any active editing
+    if (currentlyEditing) {
+      cancelEdit(currentlyEditing);
+    }
+  }
+}
+
+// Setup click handlers for editable fields
+function setupEditHandlers() {
+  document.querySelectorAll('.editable-field').forEach(field => {
+    field.addEventListener('click', function(e) {
+      if (isEditMode && !currentlyEditing) {
+        const container = this.closest('.edit-field-container');
+        startEditing(container);
+      }
+    });
+  });
+}
+
+// Start editing a field
+function startEditing(container) {
+  const fieldName = container.getAttribute('data-field');
+  const field = container.querySelector('.editable-field');
+  const currentValue = field.getAttribute('data-value');
+  const fieldType = fieldTypes[fieldName] || 'text';
+  
+  currentlyEditing = container;
+  container.classList.add('editing');
+  
+  let inputHtml = '';
+  
+  if (fieldType === 'select') {
+    const options = selectOptions[fieldName] || [];
+    inputHtml = `
+      <select class="form-control form-control-sm" id="edit-input-${fieldName}">
+        <option value="">-</option>
+        ${options.map(opt => `<option value="${opt}" ${currentValue === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+      </select>
+    `;
+  } else if (fieldType === 'textarea') {
+    inputHtml = `
+      <textarea class="form-control form-control-sm" id="edit-input-${fieldName}" rows="3">${currentValue}</textarea>
+    `;
+  } else {
+    inputHtml = `
+      <input type="${fieldType}" class="form-control form-control-sm" id="edit-input-${fieldName}" value="${currentValue}">
+    `;
+  }
+  
+  field.innerHTML = `
+    ${inputHtml}
+    <div class="edit-actions">
+      <button class="btn btn-sm btn-success" onclick="saveEdit('${fieldName}')">
+        <i class="bi bi-check-lg"></i> Save
+      </button>
+      <button class="btn btn-sm btn-secondary" onclick="cancelEdit(currentlyEditing)">
+        <i class="bi bi-x-lg"></i> Cancel
+      </button>
+    </div>
+  `;
+  
+  // Focus the input
+  document.getElementById(`edit-input-${fieldName}`).focus();
+}
+
+// Save edited field
+async function saveEdit(fieldName) {
+  const inputElement = document.getElementById(`edit-input-${fieldName}`);
+  const newValue = inputElement.value.trim() || null;
+  const container = currentlyEditing;
+  const field = container.querySelector('.editable-field');
+  
+  // Show loading state
+  field.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+  
+  try {
+    const updateData = {};
+    updateData[fieldName] = newValue;
+    
+    const res = await fetch(`/api/users/${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify(updateData),
+    });
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update field');
+    }
+    
+    // Update local profile data
+    userProfile[fieldName] = newValue;
+    
+    // Re-render the field
+    field.textContent = newValue || '-';
+    field.setAttribute('data-value', newValue || '');
+    container.classList.remove('editing');
+    currentlyEditing = null;
+    
+    // Reload profile to update computed fields (like age)
+    await loadUserProfile();
+    
+  } catch (error) {
+    console.error('Error saving field:', error);
+    alert('Failed to save: ' + error.message);
+    // Restore original value on error
+    field.textContent = userProfile[fieldName] || '-';
+    container.classList.remove('editing');
+    currentlyEditing = null;
+  }
+}
+
+// Cancel editing
+function cancelEdit(container) {
+  if (!container) return;
+  
+  const fieldName = container.getAttribute('data-field');
+  const field = container.querySelector('.editable-field');
+  const originalValue = userProfile[fieldName];
+  
+  field.textContent = originalValue || '-';
+  field.setAttribute('data-value', originalValue || '');
+  container.classList.remove('editing');
+  currentlyEditing = null;
+}
+
+// Get CSRF token from meta tag or cookie
+function getCsrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta) return meta.getAttribute('content');
+  
+  // Fallback: get from cookie
+  const name = 'csrf_token';
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  
+  return '';
+}
+
+// Load timeline when tab is shown
+document.getElementById('timeline-tab').addEventListener('shown.bs.tab', async function() {
+  if (!document.getElementById('timeline-content').hasAttribute('data-loaded')) {
+    await loadTimeline();
+    document.getElementById('timeline-content').setAttribute('data-loaded', 'true');
+  }
+});
+
+// Load timeline events
+async function loadTimeline() {
+  try {
+    const res = await fetch(`/api/timeline/users/${userId}`);
+    if (!res.ok) {
+      throw new Error('Failed to load timeline');
+    }
+    
+    const events = await res.json();
+    
+    document.getElementById('timeline-loading').style.display = 'none';
+    document.getElementById('timeline-content').style.display = 'block';
+    
+    if (canEdit) {
+      document.getElementById('add-event-btn').style.display = 'block';
+    }
+    
+    if (events.length === 0) {
+      document.getElementById('timeline-empty').style.display = 'block';
+    } else {
+      renderTimeline(events);
+    }
+    
+  } catch (error) {
+    console.error('Error loading timeline:', error);
+    document.getElementById('timeline-loading').innerHTML = `
+      <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i> Failed to load timeline
+      </div>
+    `;
+  }
+}
+
+// Render timeline events
+function renderTimeline(events) {
+  const container = document.getElementById('timeline-items');
+  
+  const eventIcons = {
+    birth: 'bi-gift',
+    adoption: 'bi-heart',
+    death: 'bi-flower1',
+  };
+  
+  const visibilityLabels = {
+    public: 'Public',
+    family: 'Family',
+    household: 'Household',
+    parents: 'Parents Only',
+    private: 'Private',
+  };
+  
+  const visibilityColors = {
+    public: 'success',
+    family: 'info',
+    household: 'primary',
+    parents: 'warning',
+    private: 'secondary',
+  };
+  
+  container.innerHTML = events.map(event => {
+    const iconClass = eventIcons[event.event_type] || 'bi-calendar-event';
+    const iconType = event.event_type || 'default';
+    const visibilityLabel = visibilityLabels[event.visibility] || event.visibility;
+    const visibilityColor = visibilityColors[event.visibility] || 'secondary';
+    
+    const eventDate = new Date(event.event_date);
+    const formattedDate = eventDate.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    
+    return `
+      <div class="timeline-item">
+        <div class="timeline-icon ${iconType}">
+          <i class="bi ${iconClass}"></i>
+        </div>
+        <div class="timeline-content">
+          <div class="timeline-date">${formattedDate}</div>
+          <div class="timeline-title">
+            ${event.title}
+            <span class="badge bg-${visibilityColor} visibility-badge">${visibilityLabel}</span>
+            ${event.is_auto_generated ? '<span class="badge bg-light text-dark visibility-badge">Auto</span>' : ''}
+          </div>
+          ${event.description ? `<div class="timeline-description">${event.description}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+</script>
+{% endblock %}

@@ -127,7 +127,7 @@ async function loadFamilyPage() {
                 ? (h.members||[]).map(m => `
                     <div class="member-badge d-flex justify-content-between align-items-center">
                       <div>
-                        <a href="#" onclick="showUserProfile(${m.user_id}); return false;" class="text-white text-decoration-none">
+                        <a href="/users/${m.user_id}" class="text-white text-decoration-none">
                           <strong>${m.display_name}</strong>
                         </a>
                         ${m.role ? `<span class="badge bg-${m.role === 'admin' ? 'danger' : m.role === 'user' ? 'primary' : 'secondary'} ms-2">${m.role}</span>` : ''}

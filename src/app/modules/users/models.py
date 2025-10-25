@@ -12,6 +12,7 @@ from flask_login import UserMixin
 
 if TYPE_CHECKING:
     from ..family.models import HouseholdMember, UserRelationship
+    from ..timeline.models import TimelineEvent
 
 
 user_group_table = Table(
@@ -31,28 +32,28 @@ class User(Base, UserMixin):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_record_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    
+
     # Personal information for family tree
     first_name: Mapped[Optional[str]] = mapped_column(String(100))
     middle_name: Mapped[Optional[str]] = mapped_column(String(100))
     last_name: Mapped[Optional[str]] = mapped_column(String(100))
-    
+
     # Contact information
     phone: Mapped[Optional[str]] = mapped_column(String(64))
     address: Mapped[Optional[str]] = mapped_column(String(512))
-    
+
     # Life events
     birthday: Mapped[Optional[date]] = mapped_column(Date)
     death_date: Mapped[Optional[date]] = mapped_column(Date)
     adoption_date: Mapped[Optional[date]] = mapped_column(Date)
-    
+
     # Additional identity information
     sex: Mapped[Optional[str]] = mapped_column(String(32))  # biological sex
     gender: Mapped[Optional[str]] = mapped_column(String(64))  # gender identity
-    
+
     # Additional notes
     notes: Mapped[Optional[str]] = mapped_column(String(1000))
-    
+
     # relationships
     groups: Mapped[List["Group"]] = relationship(
         "Group", secondary=user_group_table, back_populates="users"
@@ -60,19 +61,27 @@ class User(Base, UserMixin):
     household_memberships: Mapped[List["HouseholdMember"]] = relationship(
         "HouseholdMember", back_populates="user", cascade="all, delete-orphan"
     )
-    
+
     # Direct family relationships (not tied to households)
     family_relationships: Mapped[List["UserRelationship"]] = relationship(
         "UserRelationship",
         foreign_keys="UserRelationship.user_id",
         back_populates="user",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     related_to_me: Mapped[List["UserRelationship"]] = relationship(
         "UserRelationship",
         foreign_keys="UserRelationship.related_user_id",
         back_populates="related_user",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+    )
+    
+    # Timeline events
+    timeline_events: Mapped[List["TimelineEvent"]] = relationship(
+        "TimelineEvent",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="TimelineEvent.event_date.desc()",
     )
 
     # password helpers
@@ -86,32 +95,32 @@ class User(Base, UserMixin):
         if not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
-    
+
     @property
     def can_login(self) -> bool:
         """Check if user has credentials to login (email and password)."""
         return not self.is_record_only and self.email is not None and self.password_hash is not None
-    
+
     def gravatar_url(self, size: int = 80) -> str:
         """
         Generate Gravatar URL for user's email.
         Uses mystery person (mp) as default for users without email or with record-only accounts.
-        
+
         Args:
             size: Image size in pixels (default 80)
-        
+
         Returns:
             Gravatar URL string
         """
         import hashlib
-        
+
         if self.email:
             # Create MD5 hash of lowercase email
-            email_hash = hashlib.md5(self.email.lower().strip().encode('utf-8')).hexdigest()
+            email_hash = hashlib.md5(self.email.lower().strip().encode("utf-8")).hexdigest()
         else:
             # Use a consistent hash for users without email (generates same mystery person)
-            email_hash = hashlib.md5(f"user-{self.id}".encode('utf-8')).hexdigest()
-        
+            email_hash = hashlib.md5(f"user-{self.id}".encode("utf-8")).hexdigest()
+
         # Use mystery person (mp) as default, with size parameter
         return f"https://www.gravatar.com/avatar/{email_hash}?d=mp&s={size}"
 
@@ -137,7 +146,7 @@ class User(Base, UserMixin):
     def has_any_group(self, *names: str) -> bool:
         s = set(names)
         return any(g.name in s for g in self.groups)
-    
+
     # household role helpers (NEW system with admin/user/view-only roles)
     def get_household_role(self, household_id: int) -> Optional[str]:
         """Get user's role in a household (admin, user, view-only) or None if not a member."""
@@ -145,12 +154,12 @@ class User(Base, UserMixin):
             if m.household_id == household_id:
                 return m.role
         return None
-    
+
     def has_household_role(self, household_id: int, *roles: str) -> bool:
         """Check if user has any of the specified roles in the household."""
         user_role = self.get_household_role(household_id)
         return user_role in roles if user_role else False
-    
+
     def can_view_household(self, household_id: int) -> bool:
         """Check if user can view a household (member with any role OR non-member viewer)."""
         # Check if member
@@ -158,15 +167,15 @@ class User(Base, UserMixin):
             return True
         # Check if non-member viewer (requires session query - will be checked in routes)
         return False
-    
+
     def can_edit_household(self, household_id: int) -> bool:
         """Check if user can edit household data (admin or user role)."""
         return self.has_household_role(household_id, "admin", "user")
-    
+
     def can_manage_household(self, household_id: int) -> bool:
         """Check if user can manage household (add/remove members, delete household - admin only)."""
         return self.has_household_role(household_id, "admin")
-    
+
     # household parent helpers (LEGACY - deprecated, kept for backward compatibility)
     def is_parent_in_household(self, household_id: int) -> bool:
         """
@@ -175,7 +184,7 @@ class User(Base, UserMixin):
         Returns True if user has admin or user role in household.
         """
         return self.has_household_role(household_id, "admin", "user")
-    
+
     def get_household_children_ids(self, household_id: int) -> set[int]:
         """
         DEPRECATED: relationship_type removed from household_members.
@@ -185,7 +194,7 @@ class User(Base, UserMixin):
             return set()
         # Return all user IDs from this household (requires session query)
         return set()
-    
+
     def can_edit_household_member(self, target_user_id: int) -> bool:
         """Check if this user can edit the target user (if they're admin/user in shared household)."""
         # Check if both users are in the same household and this user has edit rights
@@ -197,7 +206,7 @@ class User(Base, UserMixin):
                 if target_user_id in target_member_ids:
                     return True
         return False
-    
+
     def can_edit_user(self, target_user_id: int) -> bool:
         """
         Check if this user can edit another user's profile.
@@ -210,23 +219,30 @@ class User(Base, UserMixin):
         # Can always edit own profile
         if self.id == target_user_id:
             return True
-        
+
         # Admins can edit anyone
         if self.has_any_group("admin", "super-admin"):
             return True
-        
+
         # Check if household admin for any of target's households
         if self.can_edit_household_member(target_user_id):
             return True
-        
+
         # Check if this user is target's parent in family relationships
         for rel in self.family_relationships:
             if rel.related_user_id == target_user_id:
-                if rel.relationship_type in ["parent", "father", "mother", "adoptive-parent", "adoptive-father", "adoptive-mother"]:
+                if rel.relationship_type in [
+                    "parent",
+                    "father",
+                    "mother",
+                    "adoptive-parent",
+                    "adoptive-father",
+                    "adoptive-mother",
+                ]:
                     return True
-        
+
         return False
-    
+
     def can_view_user(self, target_user_id: int) -> bool:
         """
         Check if this user can view another user's profile.
@@ -239,28 +255,28 @@ class User(Base, UserMixin):
         # Can always view own profile
         if self.id == target_user_id:
             return True
-        
+
         # Admins can view anyone
         if self.has_any_group("admin", "super-admin"):
             return True
-        
+
         # Check if in same household (any role can view household members)
         for membership in self.household_memberships:
             household = membership.household
             target_member_ids = {m.user_id for m in household.members}
             if target_user_id in target_member_ids:
                 return True
-        
+
         # Check for direct family relationship (outgoing: this user -> target)
         for rel in self.family_relationships:
             if rel.related_user_id == target_user_id:
                 return True
-        
+
         # Check for direct family relationship (incoming: target -> this user)
         for rel in self.related_to_me:
             if rel.user_id == target_user_id:
                 return True
-        
+
         return False
 
 

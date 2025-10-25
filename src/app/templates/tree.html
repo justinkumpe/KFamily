@@ -308,7 +308,7 @@ function renderNode(person, isCurrent = false, isSpouse = false) {
   }
   
   return `
-    <div class="tree-node ${nodeClass}" onclick="showUserProfile(${person.id})">
+    <div class="tree-node ${nodeClass}" onclick="window.location.href='/users/${person.id}'">
       ${avatarHtml}
       <div class="tree-node-name">${person.display_name || person.first_name + ' ' + person.last_name}</div>
       ${relation ? `<div class="tree-node-relation">${relation}</div>` : ''}

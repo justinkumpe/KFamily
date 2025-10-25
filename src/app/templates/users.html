@@ -77,7 +77,7 @@ function renderUsers(users) {
     const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ');
     return `
       <div class="col-md-6 col-lg-4 mb-3 fade-in">
-        <div class="card user-card h-100 shadow-sm" onclick="showUserProfile(${u.id})">
+        <div class="card user-card h-100 shadow-sm" onclick="window.location.href='/users/${u.id}'">
           <div class="card-body">
             <h6 class="card-title">
               <i class="bi bi-person-circle"></i> ${u.display_name}

@@ -120,6 +120,12 @@ def create_user():
         user.set_password(data["password"])
     current_app.session.add(user)
     current_app.session.commit()
+    
+    # Sync timeline events for life dates (birth, adoption, death)
+    from app.modules.timeline.helpers import sync_user_life_events
+    sync_user_life_events(user, current_app.session)
+    current_app.session.commit()
+    
     return jsonify({
         "id": user.id,
         "email": user.email,
@@ -232,6 +238,11 @@ def update_user(user_id: int):
         if not user.first_name or not user.last_name:
             return jsonify({"error": "Record-only users must have first_name and last_name"}), 400
     
+    sess.commit()
+    
+    # Sync timeline events for life dates (birth, adoption, death)
+    from app.modules.timeline.helpers import sync_user_life_events
+    sync_user_life_events(user, sess)
     sess.commit()
     
     # If sex changed, update all reciprocal relationships

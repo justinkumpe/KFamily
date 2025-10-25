@@ -58,7 +58,45 @@ def get_reciprocal_relationship(relationship_type: str, user_sex: str | None = N
         
         # Grandparent-grandchild relationships
         "grandparent": "grandchild",
+        "grandfather": "grandchild",
+        "grandmother": "grandchild",
         "grandchild": "grandparent",
+        
+        # Great-grandparent relationships
+        "great-grandparent": "great-grandchild",
+        "great-grandfather": "great-grandchild",
+        "great-grandmother": "great-grandchild",
+        "great-grandchild": "great-grandparent",
+        
+        # Aunt/Uncle - Niece/Nephew relationships
+        "aunt": "niece-nephew",
+        "uncle": "niece-nephew",
+        "aunt-uncle": "niece-nephew",
+        "niece": "aunt-uncle",
+        "nephew": "aunt-uncle",
+        "niece-nephew": "aunt-uncle",
+        
+        # In-law relationships
+        "father-in-law": "child-in-law",
+        "mother-in-law": "child-in-law",
+        "parent-in-law": "child-in-law",
+        "son-in-law": "parent-in-law",
+        "daughter-in-law": "parent-in-law",
+        "child-in-law": "parent-in-law",
+        "brother-in-law": "sibling-in-law",
+        "sister-in-law": "sibling-in-law",
+        "sibling-in-law": "sibling-in-law",
+        
+        # Step relationships
+        "stepfather": "stepchild",
+        "stepmother": "stepchild",
+        "stepparent": "stepchild",
+        "stepson": "stepparent",
+        "stepdaughter": "stepparent",
+        "stepchild": "stepparent",
+        
+        # Cousin relationships (bidirectional)
+        "cousin": "cousin",
         
         # Default
         "other": "other",
@@ -74,6 +112,87 @@ def get_reciprocal_relationship(relationship_type: str, user_sex: str | None = N
             return "daughter"
         else:
             return "child"
+    
+    # Gender the "grandchild" reciprocal based on child's sex
+    if base_reciprocal == "grandchild" and user_sex:
+        if user_sex == "male":
+            return "grandson"
+        elif user_sex == "female":
+            return "granddaughter"
+        else:
+            return "grandchild"
+    
+    # Gender the "great-grandchild" reciprocal based on child's sex
+    if base_reciprocal == "great-grandchild" and user_sex:
+        if user_sex == "male":
+            return "great-grandson"
+        elif user_sex == "female":
+            return "great-granddaughter"
+        else:
+            return "great-grandchild"
+    
+    # Gender the "niece-nephew" reciprocal based on child's sex
+    if base_reciprocal == "niece-nephew" and user_sex:
+        if user_sex == "male":
+            return "nephew"
+        elif user_sex == "female":
+            return "niece"
+        else:
+            return "niece-nephew"
+    
+    # Gender the "aunt-uncle" reciprocal based on person's sex
+    if base_reciprocal == "aunt-uncle" and user_sex:
+        if user_sex == "male":
+            return "uncle"
+        elif user_sex == "female":
+            return "aunt"
+        else:
+            return "aunt-uncle"
+    
+    # Gender the "child-in-law" reciprocal based on child's sex
+    if base_reciprocal == "child-in-law" and user_sex:
+        if user_sex == "male":
+            return "son-in-law"
+        elif user_sex == "female":
+            return "daughter-in-law"
+        else:
+            return "child-in-law"
+    
+    # Gender the "parent-in-law" reciprocal based on parent's sex
+    if base_reciprocal == "parent-in-law" and user_sex:
+        if user_sex == "male":
+            return "father-in-law"
+        elif user_sex == "female":
+            return "mother-in-law"
+        else:
+            return "parent-in-law"
+    
+    # Gender the "sibling-in-law" reciprocal based on sibling's sex
+    if base_reciprocal == "sibling-in-law" and user_sex:
+        if user_sex == "male":
+            return "brother-in-law"
+        elif user_sex == "female":
+            return "sister-in-law"
+        else:
+            return "sibling-in-law"
+    
+    # Gender the "stepchild" reciprocal based on child's sex
+    if base_reciprocal == "stepchild" and user_sex:
+        if user_sex == "male":
+            return "stepson"
+        elif user_sex == "female":
+            return "stepdaughter"
+        else:
+            return "stepchild"
+    
+    # Gender the "stepparent" reciprocal based on parent's sex
+    if base_reciprocal == "stepparent" and user_sex:
+        if user_sex == "male":
+            return "stepfather"
+        elif user_sex == "female":
+            return "stepmother"
+        else:
+            return "stepparent"
     
     return base_reciprocal
 

@@ -113,11 +113,21 @@ def create_app() -> Flask:
         # Permissions will be checked per-action in the API
         return render_template("admin/users.html", current_user_id=current_user.id)
 
+    @app.get("/users/<int:user_id>")
+    @login_required
+    def user_detail_page(user_id: int) -> Any:
+        # Permission checks will be done in the API calls
+        # The page itself is visible if user can view this profile
+        return render_template("user_detail.html", user_id=user_id, current_user_id=current_user.id)
+
     # Register blueprints
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(family_bp, url_prefix="/api/family")
     app.register_blueprint(relationships_bp, url_prefix="/api/relationships")
     app.register_blueprint(tree_bp, url_prefix="/api/tree")
+    
+    from .modules.timeline.routes import timeline_bp
+    app.register_blueprint(timeline_bp)
 
     # Auth blueprint
     from .modules.auth.routes import auth_bp
@@ -128,5 +138,6 @@ def create_app() -> Flask:
     csrf.exempt(family_bp)
     csrf.exempt(relationships_bp)
     csrf.exempt(tree_bp)
+    csrf.exempt(timeline_bp)
 
     return app

@@ -1,0 +1,60 @@
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: kfamily
+      MARIADB_USER: kfamily
+      MARIADB_PASSWORD: kfamilypass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://kfamily:kfamilypass@db:3306/kfamily?charset=utf8mb4
+      HOST: 0.0.0.0
+      PORT: "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./scripts:/app/scripts
+
+  relationship-inference:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://kfamily:kfamilypass@db:3306/kfamily?charset=utf8mb4
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    command: >
+      sh -c "while true; do
+        echo \"[`date '+%Y-%m-%d %H:%M:%S'`] Running relationship inference...\";
+        python /app/scripts/infer_family_relationships.py --quiet || echo 'Error during inference';
+        echo \"[`date '+%Y-%m-%d %H:%M:%S'`] Inference complete. Next run in 15 minutes.\";
+        sleep 900;
+      done"
+
+volumes:
+  db_data: {}

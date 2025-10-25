@@ -1388,12 +1388,7 @@ function renderGenogram(data) {
   }
   
   // Build parent-child relationships and identify children of each partnership
-  const parentsOf = {}; // child_id -> [parent_ids]
-  data.relationships.forEach(rel => {
-    const [parentId, childId] = rel;
-    if (!parentsOf[childId]) parentsOf[childId] = [];
-    parentsOf[childId].push(parentId);
-  });
+  // Note: parentsOf is already defined earlier for generation calculation, reuse it here
   
   // Group children by their parents' partnership
   Object.keys(parentsOf).forEach(childId => {

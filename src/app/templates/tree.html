@@ -1065,34 +1065,62 @@ function showPersonDetails(personId) {
     </div>
   `;
 
-  if (person.date_of_birth) {
+  if (person.birthday) {
     html += `
       <div class="info-group">
-        <div class="info-label">Date of Birth</div>
-        <div class="info-value">${person.date_of_birth}</div>
+        <div class="info-label">Birthday</div>
+        <div class="info-value">${person.birthday}</div>
       </div>
     `;
   }
 
-  if (person.gender) {
+  if (person.age !== null && person.age !== undefined) {
     html += `
       <div class="info-group">
-        <div class="info-label">Gender</div>
-        <div class="info-value">${person.gender}</div>
+        <div class="info-label">Age</div>
+        <div class="info-value">${person.age} years</div>
+      </div>
+    `;
+  }
+
+  if (person.sex) {
+    html += `
+      <div class="info-group">
+        <div class="info-label">Sex</div>
+        <div class="info-value">${person.sex === 'M' || person.sex === 'male' ? 'Male' : person.sex === 'F' || person.sex === 'female' ? 'Female' : person.sex}</div>
+      </div>
+    `;
+  }
+
+  if (person.death_date) {
+    html += `
+      <div class="info-group">
+        <div class="info-label">Death Date</div>
+        <div class="info-value">${person.death_date}</div>
+      </div>
+    `;
+  }
+
+  if (person.adoption_date) {
+    html += `
+      <div class="info-group">
+        <div class="info-label">Adoption Date</div>
+        <div class="info-value">${person.adoption_date}</div>
       </div>
     `;
   }
 
   html += `
     <hr>
+    <h6 class="mb-3">Quick Actions</h6>
     <div class="d-grid gap-2">
-      <button class="btn btn-outline-primary" onclick="selectPerson(${personId})">
+      <button class="btn btn-sm btn-outline-primary" onclick="selectPerson(${personId})">
         <i class="bi bi-check-circle"></i> Select for Partnership
       </button>
-      <button class="btn btn-outline-success" onclick="showAddEventModalFor(${personId})">
+      <button class="btn btn-sm btn-outline-success" onclick="showAddEventModalFor(${personId})">
         <i class="bi bi-calendar-event"></i> Add Life Event
       </button>
-      <button class="btn btn-outline-info" onclick="showAddMedicalModalFor(${personId})">
+      <button class="btn btn-sm btn-outline-info" onclick="showAddMedicalModalFor(${personId})">
         <i class="bi bi-heart-pulse"></i> Add Medical Condition
       </button>
     </div>
@@ -1571,7 +1599,10 @@ function renderGenogram(data) {
       if (pos1 && pos2 && pos1.y === pos2.y) { // Only if they're on same generation
         const x1 = pos1.x + SYMBOL_SIZE/2;
         const x2 = pos2.x - SYMBOL_SIZE/2;
-        const partnershipKey = `${partnership.person1_id}-${partnership.person2_id}`;
+        
+        // Use sorted partnership key to match children grouping
+        const sortedIds = [partnership.person1_id, partnership.person2_id].sort((a, b) => a - b);
+        const partnershipKey = `${sortedIds[0]}-${sortedIds[1]}`;
         
         drawPartnershipLine(svg, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
         

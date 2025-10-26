@@ -26,10 +26,18 @@ def get_engine(echo: bool | None = None):
     """Create and return a SQLAlchemy engine using env DATABASE_URL.
 
     Keep DB-agnostic by relying on SQLAlchemy URL dialect.
+    Configures connection pool to handle concurrent requests.
     """
 
     url = _get_database_url()
-    return create_engine(url, echo=bool(echo))
+    return create_engine(
+        url, 
+        echo=bool(echo),
+        pool_size=10,  # Increased from default 5
+        max_overflow=20,  # Increased from default 10
+        pool_pre_ping=True,  # Verify connections are alive before using
+        pool_recycle=3600  # Recycle connections after 1 hour
+    )
 
 
 Base = declarative_base()

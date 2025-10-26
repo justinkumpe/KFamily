@@ -1756,6 +1756,10 @@ function renderGenogram(data) {
   
   const drawnConnections = new Set(); // Track already-drawn connections to avoid duplicates
   
+  // Define which relationship types should have lines drawn
+  const drawableRelationships = ['father', 'mother', 'parent', 'son', 'daughter', 'child', 
+                                  'adoptive-father', 'adoptive-mother', 'adoptive-parent'];
+  
   // Sort relationships to prioritize adoptive relationships (so they're drawn first)
   const sortedRelationships = [...data.relationships].sort((a, b) => {
     const aType = a[2] || '';
@@ -1768,6 +1772,12 @@ function renderGenogram(data) {
   
   sortedRelationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
+    
+    // Skip relationships that shouldn't be drawn as parent-child lines
+    if (!drawableRelationships.includes(relType)) {
+      console.log(`Skipping non-parental relationship: ${parentId} -> ${childId}, type="${relType}"`);
+      return;
+    }
     
     // Skip if we already drew this connection
     const connectionKey = `${parentId}-${childId}`;

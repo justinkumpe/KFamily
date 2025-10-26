@@ -1500,41 +1500,50 @@ function renderGenogram(data) {
   // Build parent-child maps
   const childrenOf = {};  // parent_id -> [child_ids]
   const parentsOf = {};   // child_id -> [parent_ids]
+  const siblingsOf = {};  // person_id -> [sibling_ids]
   const relationshipTypes = {};  // "parentId-childId" -> relationship_type
   
   // Define which relationship types indicate parent-child relationships
   const parentChildTypes = ['father', 'mother', 'parent', 'son', 'daughter', 'child', 
                             'adoptive-father', 'adoptive-mother', 'adoptive-parent'];
+  const siblingTypes = ['brother', 'sister', 'sibling'];
   
   data.relationships.forEach(rel => {
-    const [parentId, childId, relType] = rel;
+    const [personId, relatedId, relType] = rel;
     
-    // Skip if parentId is undefined/null
-    if (!parentId || !childId) {
+    // Skip if personId is undefined/null
+    if (!personId || !relatedId) {
       console.warn('Skipping invalid relationship:', rel);
       return;
     }
     
-    // Only use actual parent-child relationships for generation assignment
-    // This excludes aunt, uncle, nephew, niece, cousin, sibling, etc.
+    // Handle parent-child relationships for generation assignment
     const isParentChild = parentChildTypes.includes(relType);
-    
     if (isParentChild) {
-      if (!childrenOf[parentId]) childrenOf[parentId] = [];
-      if (!parentsOf[childId]) parentsOf[childId] = [];
+      if (!childrenOf[personId]) childrenOf[personId] = [];
+      if (!parentsOf[relatedId]) parentsOf[relatedId] = [];
       
       // Avoid duplicates
-      if (!childrenOf[parentId].includes(childId)) {
-        childrenOf[parentId].push(childId);
+      if (!childrenOf[personId].includes(relatedId)) {
+        childrenOf[personId].push(relatedId);
       }
-      if (!parentsOf[childId].includes(parentId)) {
-        parentsOf[childId].push(parentId);
+      if (!parentsOf[relatedId].includes(personId)) {
+        parentsOf[relatedId].push(personId);
+      }
+    }
+    
+    // Handle sibling relationships for same-generation placement
+    const isSibling = siblingTypes.includes(relType);
+    if (isSibling) {
+      if (!siblingsOf[personId]) siblingsOf[personId] = [];
+      if (!siblingsOf[personId].includes(relatedId)) {
+        siblingsOf[personId].push(relatedId);
       }
     }
     
     // Store relationship type for BOTH directions (to detect adopted children)
-    relationshipTypes[`${parentId}-${childId}`] = relType || 'child';
-    relationshipTypes[`${childId}-${parentId}`] = relType || 'child';
+    relationshipTypes[`${personId}-${relatedId}`] = relType || 'child';
+    relationshipTypes[`${relatedId}-${personId}`] = relType || 'child';
   });
   
   // Assign generations using BFS from root
@@ -1563,6 +1572,17 @@ function renderGenogram(data) {
           personGeneration[childId] = gen + 1;
           visited.add(childId);
           queue.push(childId);
+        }
+      });
+    }
+    
+    // Process siblings (same generation)
+    if (siblingsOf[personId]) {
+      siblingsOf[personId].forEach(siblingId => {
+        if (!visited.has(siblingId)) {
+          personGeneration[siblingId] = gen; // Same generation as current person
+          visited.add(siblingId);
+          queue.push(siblingId);
         }
       });
     }

@@ -1743,8 +1743,19 @@ function renderGenogram(data) {
   // Draw parent-child lines for children NOT part of a partnership
   console.log('Drawing single-parent child connections...');
   console.log('relationshipTypes map:', relationshipTypes);
+  
+  const drawnConnections = new Set(); // Track already-drawn connections to avoid duplicates
+  
   data.relationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
+    
+    // Skip if we already drew this connection
+    const connectionKey = `${parentId}-${childId}`;
+    if (drawnConnections.has(connectionKey)) {
+      console.log(`Skipping duplicate connection: ${connectionKey}`);
+      return;
+    }
+    
     const parents = parentsOf[childId];
     
     console.log(`Checking child ${childId}: parents =`, parents, `relType = "${relType}"`);
@@ -1757,6 +1768,7 @@ function renderGenogram(data) {
         const isAdopted = relType && relType.includes('adoptive');
         console.log(`Drawing single-parent line: parent ${parentId} -> child ${childId}, relType="${relType}", adopted = ${isAdopted}`);
         drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
+        drawnConnections.add(connectionKey);
       }
     } else if (parents.length === 2) {
       // Check if there's NO partnership between the parents
@@ -1771,6 +1783,7 @@ function renderGenogram(data) {
           const isAdopted = relType && relType.includes('adoptive');
           console.log(`Drawing no-partnership line: parent ${parentId} -> child ${childId}, relType="${relType}", adopted = ${isAdopted}`);
           drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
+          drawnConnections.add(connectionKey);
         }
       }
     }

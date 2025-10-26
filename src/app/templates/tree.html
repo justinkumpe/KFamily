@@ -1595,7 +1595,7 @@ function renderGenogram(data) {
     generations[gen].push(data.people[personId]);
   });
   
-  // Calculate positions
+  // Calculate positions with partnership-aware layout
   const genKeys = Object.keys(generations).map(Number).sort((a, b) => a - b);
   const startY = 100;
   let maxX = 0;
@@ -1603,13 +1603,45 @@ function renderGenogram(data) {
   genKeys.forEach((gen, genIndex) => {
     const people = generations[gen];
     const yPos = startY + (genIndex * VERTICAL_SPACING);
-    const totalWidth = people.length * HORIZONTAL_SPACING;
-    const startX = (1200 - totalWidth) / 2 + HORIZONTAL_SPACING / 2; // Center on canvas
     
-    people.forEach((person, index) => {
-      const xPos = startX + (index * HORIZONTAL_SPACING);
-      positionMap[person.id] = { x: xPos, y: yPos };
-      if (xPos > maxX) maxX = xPos;
+    // Group people by partnerships for better positioning
+    const positioned = new Set();
+    const peopleInGen = [...people]; // Make a copy
+    let xOffset = 100; // Starting X position
+    
+    // First, position people who are in partnerships
+    if (data.partnerships) {
+      data.partnerships.forEach(partnership => {
+        const person1 = peopleInGen.find(p => p.id === partnership.person1_id);
+        const person2 = peopleInGen.find(p => p.id === partnership.person2_id);
+        
+        // Only position if both are in this generation
+        if (person1 && person2 && !positioned.has(person1.id) && !positioned.has(person2.id)) {
+          const gen1 = personGeneration[person1.id];
+          const gen2 = personGeneration[person2.id];
+          
+          if (gen1 === gen && gen2 === gen) {
+            // Position partnership couple together
+            positionMap[person1.id] = { x: xOffset, y: yPos };
+            positionMap[person2.id] = { x: xOffset + HORIZONTAL_SPACING, y: yPos };
+            positioned.add(person1.id);
+            positioned.add(person2.id);
+            xOffset += HORIZONTAL_SPACING * 2 + 100; // Extra gap after each partnership
+            
+            if (xOffset > maxX) maxX = xOffset;
+          }
+        }
+      });
+    }
+    
+    // Then position remaining people (not in partnerships)
+    peopleInGen.forEach(person => {
+      if (!positioned.has(person.id)) {
+        positionMap[person.id] = { x: xOffset, y: yPos };
+        positioned.add(person.id);
+        xOffset += HORIZONTAL_SPACING;
+        if (xOffset > maxX) maxX = xOffset;
+      }
     });
   });
   

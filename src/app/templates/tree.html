@@ -1218,17 +1218,17 @@ async function loadFamilyTree() {
 }
 
 // Draw person symbol based on gender
-function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
+function drawPersonSymbol(container, x, y, person, isCurrent = false) {
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   g.setAttribute('class', `genogram-person ${isCurrent ? 'current-user' : ''}`);
   g.setAttribute('data-id', person.id);
   g.setAttribute('data-person-id', person.id);
   g.style.cursor = 'pointer';
   
-  // Click to show person details
+  // Click to navigate to user profile
   g.onclick = (e) => {
     e.preventDefault();
-    showPersonDetails(person.id);
+    window.location.href = `/users/${person.id}`;
   };
   
   let shape;
@@ -1313,12 +1313,12 @@ function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
     g.appendChild(dates);
   }
   
-  svg.appendChild(g);
+  container.appendChild(g); // Append to container (will be peopleGroup)
   return { x, y, person };
 }
 
 // Draw line between two points
-function drawLine(svg, x1, y1, x2, y2, className, isAdopted = false) {
+function drawLine(container, x1, y1, x2, y2, className, isAdopted = false) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
   line.setAttribute('y1', y1);
@@ -1328,7 +1328,7 @@ function drawLine(svg, x1, y1, x2, y2, className, isAdopted = false) {
   if (isAdopted) {
     line.setAttribute('stroke-dasharray', '5,5');
   }
-  svg.insertBefore(line, svg.firstChild); // Insert at beginning so lines are behind symbols
+  container.appendChild(line); // Append to container (will be linesGroup)
   return line;
 }
 
@@ -1338,7 +1338,7 @@ function drawMarriageLine(svg, x1, y1, x2, y2) {
 }
 
 // Draw partnership line based on relationship type
-function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
+function drawPartnershipLine(container, x1, y1, x2, y2, partnershipType) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
   line.setAttribute('y1', y1);
@@ -1355,7 +1355,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     line.setAttribute('class', 'partnership-divorced');
     line.setAttribute('stroke', '#6c757d');
     line.setAttribute('stroke-width', '2');
-    svg.insertBefore(line, svg.firstChild);
+    container.appendChild(line);
     
     // Add two slash marks
     const midX = (x1 + x2) / 2;
@@ -1371,7 +1371,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     slash1.setAttribute('y2', slashY2);
     slash1.setAttribute('stroke', '#6c757d');
     slash1.setAttribute('stroke-width', '3');
-    svg.insertBefore(slash1, svg.firstChild);
+    container.appendChild(slash1);
     
     const slash2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     slash2.setAttribute('x1', slash2X);
@@ -1380,14 +1380,14 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     slash2.setAttribute('y2', slashY2);
     slash2.setAttribute('stroke', '#6c757d');
     slash2.setAttribute('stroke-width', '3');
-    svg.insertBefore(slash2, svg.firstChild);
+    container.appendChild(slash2);
     return;
   } else if (partnershipType === 'separated') {
     // Solid line with one slash
     line.setAttribute('class', 'partnership-separated');
     line.setAttribute('stroke', '#6c757d');
     line.setAttribute('stroke-width', '2');
-    svg.insertBefore(line, svg.firstChild);
+    container.appendChild(line);
     
     const midX = (x1 + x2) / 2;
     const slash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1397,7 +1397,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     slash.setAttribute('y2', y1 + 8);
     slash.setAttribute('stroke', '#6c757d');
     slash.setAttribute('stroke-width', '3');
-    svg.insertBefore(slash, svg.firstChild);
+    container.appendChild(slash);
     return;
   } else if (partnershipType === 'common_law') {
     // Dashed line
@@ -1411,7 +1411,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     line.setAttribute('stroke', '#0dcaf0');
     line.setAttribute('stroke-width', '2');
     line.setAttribute('stroke-dasharray', '5,5');
-    svg.insertBefore(line, svg.firstChild);
+    container.appendChild(line);
     
     const midX = (x1 + x2) / 2;
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -1421,7 +1421,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     text.setAttribute('font-size', '12');
     text.setAttribute('fill', '#0dcaf0');
     text.textContent = 'E';
-    svg.appendChild(text);
+    container.appendChild(text); // Text goes in same layer as lines
     return;
   } else {
     // Default: simple line
@@ -1429,7 +1429,7 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
     line.setAttribute('stroke-width', '2');
   }
   
-  svg.insertBefore(line, svg.firstChild);
+  container.appendChild(line);
 }
 
 // Draw parent-child connection
@@ -1464,6 +1464,15 @@ function renderGenogram(data) {
   // Create SVG
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('id', 'genogram-svg');
+  
+  // Create layered groups for proper z-ordering
+  const linesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  linesGroup.setAttribute('id', 'lines-layer');
+  const peopleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  peopleGroup.setAttribute('id', 'people-layer');
+  
+  svg.appendChild(linesGroup);
+  svg.appendChild(peopleGroup);
   
   // Calculate generations for each person
   const generations = {};
@@ -1604,7 +1613,7 @@ function renderGenogram(data) {
         const sortedIds = [partnership.person1_id, partnership.person2_id].sort((a, b) => a - b);
         const partnershipKey = `${sortedIds[0]}-${sortedIds[1]}`;
         
-        drawPartnershipLine(svg, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
+        drawPartnershipLine(linesGroup, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
         
         // Draw children from this partnership
         const children = childrenOfPartnership[partnershipKey];
@@ -1636,7 +1645,7 @@ function renderGenogram(data) {
             line1.setAttribute('x2', midX);
             line1.setAttribute('y2', sibshipY);
             line1.setAttribute('class', 'parent-child-line');
-            svg.insertBefore(line1, svg.firstChild);
+            linesGroup.appendChild(line1);
             
             if (childPositions.length === 1) {
               // Single child - direct line down
@@ -1657,7 +1666,7 @@ function renderGenogram(data) {
               if (isAdopted) {
                 line2.setAttribute('stroke-dasharray', '5,5');
               }
-              svg.insertBefore(line2, svg.firstChild);
+              linesGroup.appendChild(line2);
             } else {
               // Multiple children - draw sibship line
               const leftmostX = childPositions[0].pos.x;
@@ -1670,7 +1679,7 @@ function renderGenogram(data) {
               sibLine.setAttribute('x2', rightmostX);
               sibLine.setAttribute('y2', sibshipY);
               sibLine.setAttribute('class', 'parent-child-line');
-              svg.insertBefore(sibLine, svg.firstChild);
+              linesGroup.appendChild(sibLine);
               
               // Vertical lines from sibship line to each child
               childPositions.forEach(child => {
@@ -1688,7 +1697,7 @@ function renderGenogram(data) {
                 if (isAdopted) {
                   vLine.setAttribute('stroke-dasharray', '5,5');
                 }
-                svg.insertBefore(vLine, svg.firstChild);
+                linesGroup.appendChild(vLine);
               });
             }
           }
@@ -1708,7 +1717,7 @@ function renderGenogram(data) {
       const childPos = positionMap[childId];
       if (parentPos && childPos) {
         const isAdopted = relType && relType.includes('adoptive');
-        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
+        drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
       }
     } else if (parents.length === 2) {
       // Check if there's NO partnership between the parents
@@ -1720,18 +1729,18 @@ function renderGenogram(data) {
         const childPos = positionMap[childId];
         if (parentPos && childPos) {
           const isAdopted = relType && relType.includes('adoptive');
-          drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
+          drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
         }
       }
     }
   });
   
-  // Draw all people
+  // Draw all people (must be drawn AFTER all lines to appear on top)
   Object.keys(data.people).forEach(personId => {
     const person = data.people[personId];
     const pos = positionMap[personId];
     if (pos) {
-      drawPersonSymbol(svg, pos.x, pos.y, person, parseInt(personId) === data.root_id);
+      drawPersonSymbol(peopleGroup, pos.x, pos.y, person, parseInt(personId) === data.root_id);
     }
   });
   

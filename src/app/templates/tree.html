@@ -1446,6 +1446,7 @@ function drawPartnershipLine(container, x1, y1, x2, y2, partnershipType) {
 
 // Draw parent-child connection
 function drawParentChildLine(svg, parentX, parentY, childX, childY, isAdopted = false) {
+  console.log(`📍 drawParentChildLine: parent(${parentX}, ${parentY}) -> child(${childX}, ${childY}), adopted=${isAdopted}`);
   // Vertical line from parent down
   const midY = parentY + VERTICAL_SPACING / 2;
   drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line', isAdopted);

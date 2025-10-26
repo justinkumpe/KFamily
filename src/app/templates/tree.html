@@ -1503,10 +1503,23 @@ function renderGenogram(data) {
   
   data.relationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
+    
+    // Skip if parentId is undefined/null
+    if (!parentId || !childId) {
+      console.warn('Skipping invalid relationship:', rel);
+      return;
+    }
+    
     if (!childrenOf[parentId]) childrenOf[parentId] = [];
     if (!parentsOf[childId]) parentsOf[childId] = [];
-    childrenOf[parentId].push(childId);
-    parentsOf[childId].push(parentId);
+    
+    // Avoid duplicates
+    if (!childrenOf[parentId].includes(childId)) {
+      childrenOf[parentId].push(childId);
+    }
+    if (!parentsOf[childId].includes(parentId)) {
+      parentsOf[childId].push(parentId);
+    }
     
     // Store relationship type for BOTH directions (to detect adopted children)
     relationshipTypes[`${parentId}-${childId}`] = relType || 'child';
@@ -1688,6 +1701,11 @@ function renderGenogram(data) {
               const leftmostX = childPositions[0].pos.x;
               const rightmostX = childPositions[childPositions.length - 1].pos.x;
               
+              console.log(`Drawing sibship line for partnership ${partnershipKey}:`);
+              console.log(`  Children IDs: ${childPositions.map(c => c.id).join(', ')}`);
+              console.log(`  X positions: ${childPositions.map(c => c.pos.x).join(', ')}`);
+              console.log(`  Leftmost X: ${leftmostX}, Rightmost X: ${rightmostX}, Y: ${sibshipY}`);
+              
               // Horizontal sibship line
               const sibLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
               sibLine.setAttribute('x1', leftmostX);
@@ -1724,19 +1742,20 @@ function renderGenogram(data) {
   
   // Draw parent-child lines for children NOT part of a partnership
   console.log('Drawing single-parent child connections...');
+  console.log('relationshipTypes map:', relationshipTypes);
   data.relationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
     const parents = parentsOf[childId];
     
-    console.log(`Checking child ${childId}: parents =`, parents);
+    console.log(`Checking child ${childId}: parents =`, parents, `relType = "${relType}"`);
     
     // Only draw if this child is NOT part of a partnership (single parent or no partnership defined)
     if (!parents || parents.length === 1) {
       const parentPos = positionMap[parentId];
       const childPos = positionMap[childId];
       if (parentPos && childPos) {
-        console.log(`Drawing single-parent line: parent ${parentId} -> child ${childId}, adopted = ${relType && relType.includes('adoptive')}`);
         const isAdopted = relType && relType.includes('adoptive');
+        console.log(`Drawing single-parent line: parent ${parentId} -> child ${childId}, relType="${relType}", adopted = ${isAdopted}`);
         drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
       }
     } else if (parents.length === 2) {
@@ -1749,8 +1768,8 @@ function renderGenogram(data) {
         const parentPos = positionMap[parentId];
         const childPos = positionMap[childId];
         if (parentPos && childPos) {
-          console.log(`Drawing no-partnership line: parent ${parentId} -> child ${childId}`);
           const isAdopted = relType && relType.includes('adoptive');
+          console.log(`Drawing no-partnership line: parent ${parentId} -> child ${childId}, relType="${relType}", adopted = ${isAdopted}`);
           drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
         }
       }

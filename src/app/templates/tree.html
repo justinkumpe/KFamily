@@ -1501,6 +1501,10 @@ function renderGenogram(data) {
   const parentsOf = {};   // child_id -> [parent_ids]
   const relationshipTypes = {};  // "parentId-childId" -> relationship_type
   
+  // Define which relationship types indicate parent-child relationships
+  const parentChildTypes = ['father', 'mother', 'parent', 'son', 'daughter', 'child', 
+                            'adoptive-father', 'adoptive-mother', 'adoptive-parent'];
+  
   data.relationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
     
@@ -1510,15 +1514,21 @@ function renderGenogram(data) {
       return;
     }
     
-    if (!childrenOf[parentId]) childrenOf[parentId] = [];
-    if (!parentsOf[childId]) parentsOf[childId] = [];
+    // Only use actual parent-child relationships for generation assignment
+    // This excludes aunt, uncle, nephew, niece, cousin, sibling, etc.
+    const isParentChild = parentChildTypes.includes(relType);
     
-    // Avoid duplicates
-    if (!childrenOf[parentId].includes(childId)) {
-      childrenOf[parentId].push(childId);
-    }
-    if (!parentsOf[childId].includes(parentId)) {
-      parentsOf[childId].push(parentId);
+    if (isParentChild) {
+      if (!childrenOf[parentId]) childrenOf[parentId] = [];
+      if (!parentsOf[childId]) parentsOf[childId] = [];
+      
+      // Avoid duplicates
+      if (!childrenOf[parentId].includes(childId)) {
+        childrenOf[parentId].push(childId);
+      }
+      if (!parentsOf[childId].includes(parentId)) {
+        parentsOf[childId].push(parentId);
+      }
     }
     
     // Store relationship type for BOTH directions (to detect adopted children)

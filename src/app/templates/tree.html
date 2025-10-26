@@ -311,6 +311,9 @@
     <button class="btn btn-primary" onclick="showAddPartnershipModal()">
       <i class="bi bi-heart"></i> Add Partnership
     </button>
+    <button class="btn btn-warning" onclick="showAddRelationshipModal()">
+      <i class="bi bi-diagram-3"></i> Add Relationship
+    </button>
     <button class="btn btn-success" onclick="showAddEventModal()">
       <i class="bi bi-calendar-event"></i> Add Life Event
     </button>
@@ -683,6 +686,90 @@
   </div>
 </div>
 
+<!-- Relationship Modal -->
+<div class="modal fade" id="relationshipModal" tabindex="-1" aria-labelledby="relationshipModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="relationshipModalLabel">Add Relationship</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="relationshipForm">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="relationshipPerson1" class="form-label">Person 1 *</label>
+              <select class="form-select" id="relationshipPerson1" required>
+                <option value="">Select person...</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="relationshipType2" class="form-label">Relationship Type *</label>
+              <select class="form-select" id="relationshipType2" required>
+                <optgroup label="Parent-Child">
+                  <option value="father">Father</option>
+                  <option value="mother">Mother</option>
+                  <option value="parent">Parent</option>
+                  <option value="son">Son</option>
+                  <option value="daughter">Daughter</option>
+                  <option value="child">Child</option>
+                </optgroup>
+                <optgroup label="Adoptive Parent-Child">
+                  <option value="adoptive-father">Adoptive Father</option>
+                  <option value="adoptive-mother">Adoptive Mother</option>
+                  <option value="adoptive-parent">Adoptive Parent</option>
+                </optgroup>
+                <optgroup label="Siblings">
+                  <option value="brother">Brother</option>
+                  <option value="sister">Sister</option>
+                  <option value="sibling">Sibling</option>
+                </optgroup>
+                <optgroup label="Extended Family">
+                  <option value="grandparent">Grandparent</option>
+                  <option value="grandfather">Grandfather</option>
+                  <option value="grandmother">Grandmother</option>
+                  <option value="grandchild">Grandchild</option>
+                  <option value="grandson">Grandson</option>
+                  <option value="granddaughter">Granddaughter</option>
+                  <option value="aunt">Aunt</option>
+                  <option value="uncle">Uncle</option>
+                  <option value="niece">Niece</option>
+                  <option value="nephew">Nephew</option>
+                  <option value="cousin">Cousin</option>
+                </optgroup>
+                <optgroup label="Spouse">
+                  <option value="spouse">Spouse</option>
+                  <option value="husband">Husband</option>
+                  <option value="wife">Wife</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="relationshipPerson2" class="form-label">Person 2 *</label>
+            <select class="form-select" id="relationshipPerson2" required>
+              <option value="">Select person...</option>
+            </select>
+            <div class="form-text">
+              Person 1 is the <strong id="relTypeDisplay">selected relationship</strong> of Person 2
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="relationshipNotes" class="form-label">Notes</label>
+            <textarea class="form-control" id="relationshipNotes" rows="3" placeholder="Additional notes about this relationship..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveRelationship()">Save Relationship</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Person Detail Side Panel -->
 <div class="side-panel" id="personDetailPanel">
   <div class="side-panel-header">
@@ -904,6 +991,62 @@ async function saveMedicalCondition() {
     showToast('Medical condition saved successfully!', 'success');
   } catch (error) {
     console.error('Error saving medical condition:', error);
+    showToast(error.message, 'danger');
+  }
+}
+
+function showAddRelationshipModal() {
+  populatePersonSelect('relationshipPerson1');
+  populatePersonSelect('relationshipPerson2');
+  new bootstrap.Modal(document.getElementById('relationshipModal')).show();
+}
+
+// Update relationship type display when changed
+document.addEventListener('DOMContentLoaded', function() {
+  const relTypeSelect = document.getElementById('relationshipType2');
+  if (relTypeSelect) {
+    relTypeSelect.addEventListener('change', function() {
+      const display = document.getElementById('relTypeDisplay');
+      const selectedOption = this.options[this.selectedIndex];
+      if (display && selectedOption) {
+        display.textContent = selectedOption.text.toLowerCase();
+      }
+    });
+  }
+});
+
+async function saveRelationship() {
+  const form = document.getElementById('relationshipForm');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const data = {
+    user_id: parseInt(document.getElementById('relationshipPerson1').value),
+    related_user_id: parseInt(document.getElementById('relationshipPerson2').value),
+    relationship_type: document.getElementById('relationshipType2').value,
+    notes: document.getElementById('relationshipNotes').value || null
+  };
+
+  try {
+    const response = await fetch('/api/relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to save relationship');
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('relationshipModal')).hide();
+    form.reset();
+    loadFamilyTree();
+    showToast('Relationship saved successfully!', 'success');
+  } catch (error) {
+    console.error('Error saving relationship:', error);
     showToast(error.message, 'danger');
   }
 }

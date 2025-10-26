@@ -275,7 +275,7 @@ def build_complete_family_network(root_user_id: int, sess):
     """
     visited = set()
     people = {}
-    relationships = []  # List of (parent_id, child_id) tuples
+    relationships = []  # List of (parent_id, child_id, relationship_type) tuples
     partnerships = []  # List of partnership data
     
     def get_person_data(user):
@@ -318,12 +318,12 @@ def build_complete_family_network(root_user_id: int, sess):
             if rel.relationship_type in ['father', 'mother', 'parent', 
                                          'adoptive-father', 'adoptive-mother', 'adoptive-parent']:
                 # This person's parent
-                relationships.append((related_id, user_id))
+                relationships.append((related_id, user_id, rel.relationship_type))
                 explore_network(related_id, depth + 1, max_depth)
             
             elif rel.relationship_type in ['son', 'daughter', 'child']:
                 # This person's child
-                relationships.append((user_id, related_id))
+                relationships.append((user_id, related_id, rel.relationship_type))
                 explore_network(related_id, depth + 1, max_depth)
             
             # Also explore siblings, spouses to get complete network
@@ -400,7 +400,7 @@ def get_family_tree():
         tree_data = {
             'root_id': user.id,
             'people': network['people'],
-            'relationships': network['relationships'],  # List of [parent_id, child_id] arrays
+            'relationships': network['relationships'],  # List of [parent_id, child_id, relationship_type] arrays
             'partnerships': network['partnerships'],  # List of partnership objects
         }
         

@@ -1147,13 +1147,16 @@ function drawPersonSymbol(svg, x, y, person, isCurrent = false) {
 }
 
 // Draw line between two points
-function drawLine(svg, x1, y1, x2, y2, className) {
+function drawLine(svg, x1, y1, x2, y2, className, isAdopted = false) {
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
   line.setAttribute('x1', x1);
   line.setAttribute('y1', y1);
   line.setAttribute('x2', x2);
   line.setAttribute('y2', y2);
   line.setAttribute('class', className);
+  if (isAdopted) {
+    line.setAttribute('stroke-dasharray', '5,5');
+  }
   svg.insertBefore(line, svg.firstChild); // Insert at beginning so lines are behind symbols
   return line;
 }
@@ -1259,14 +1262,14 @@ function drawPartnershipLine(svg, x1, y1, x2, y2, partnershipType) {
 }
 
 // Draw parent-child connection
-function drawParentChildLine(svg, parentX, parentY, childX, childY) {
+function drawParentChildLine(svg, parentX, parentY, childX, childY, isAdopted = false) {
   // Vertical line from parent down
   const midY = parentY + VERTICAL_SPACING / 2;
-  drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line');
+  drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line', isAdopted);
   // Horizontal line to child's X position
-  drawLine(svg, parentX, midY, childX, midY, 'parent-child-line');
+  drawLine(svg, parentX, midY, childX, midY, 'parent-child-line', isAdopted);
   // Vertical line to child
-  drawLine(svg, childX, midY, childX, childY - SYMBOL_SIZE/2, 'parent-child-line');
+  drawLine(svg, childX, midY, childX, childY - SYMBOL_SIZE/2, 'parent-child-line', isAdopted);
 }
 
 // Render the genogram
@@ -1302,13 +1305,17 @@ function renderGenogram(data) {
   // Build parent-child maps
   const childrenOf = {};  // parent_id -> [child_ids]
   const parentsOf = {};   // child_id -> [parent_ids]
+  const relationshipTypes = {};  // "parentId-childId" -> relationship_type
   
   data.relationships.forEach(rel => {
-    const [parentId, childId] = rel;
+    const [parentId, childId, relType] = rel;
     if (!childrenOf[parentId]) childrenOf[parentId] = [];
     if (!parentsOf[childId]) parentsOf[childId] = [];
     childrenOf[parentId].push(childId);
     parentsOf[childId].push(parentId);
+    
+    // Store relationship type for later (to detect adopted children)
+    relationshipTypes[`${parentId}-${childId}`] = relType || 'child';
   });
   
   // Assign generations using BFS from root
@@ -1460,12 +1467,22 @@ function renderGenogram(data) {
             if (childPositions.length === 1) {
               // Single child - direct line down
               const childPos = childPositions[0].pos;
+              const childId = childPositions[0].id;
+              
+              // Check if this is an adopted child
+              const parent1Rel = relationshipTypes[`${partnership.person1_id}-${childId}`] || '';
+              const parent2Rel = relationshipTypes[`${partnership.person2_id}-${childId}`] || '';
+              const isAdopted = parent1Rel.includes('adoptive') || parent2Rel.includes('adoptive');
+              
               const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
               line2.setAttribute('x1', midX);
               line2.setAttribute('y1', sibshipY);
               line2.setAttribute('x2', childPos.x);
               line2.setAttribute('y2', childPos.y - SYMBOL_SIZE/2);
               line2.setAttribute('class', 'parent-child-line');
+              if (isAdopted) {
+                line2.setAttribute('stroke-dasharray', '5,5');
+              }
               svg.insertBefore(line2, svg.firstChild);
             } else {
               // Multiple children - draw sibship line
@@ -1483,12 +1500,20 @@ function renderGenogram(data) {
               
               // Vertical lines from sibship line to each child
               childPositions.forEach(child => {
+                // Check if this is an adopted child by looking at relationship type from either parent
+                const parent1Rel = relationshipTypes[`${partnership.person1_id}-${child.id}`] || '';
+                const parent2Rel = relationshipTypes[`${partnership.person2_id}-${child.id}`] || '';
+                const isAdopted = parent1Rel.includes('adoptive') || parent2Rel.includes('adoptive');
+                
                 const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 vLine.setAttribute('x1', child.pos.x);
                 vLine.setAttribute('y1', sibshipY);
                 vLine.setAttribute('x2', child.pos.x);
                 vLine.setAttribute('y2', child.pos.y - SYMBOL_SIZE/2);
                 vLine.setAttribute('class', 'parent-child-line');
+                if (isAdopted) {
+                  vLine.setAttribute('stroke-dasharray', '5,5');
+                }
                 svg.insertBefore(vLine, svg.firstChild);
               });
             }
@@ -1500,7 +1525,7 @@ function renderGenogram(data) {
   
   // Draw parent-child lines for children NOT part of a partnership
   data.relationships.forEach(rel => {
-    const [parentId, childId] = rel;
+    const [parentId, childId, relType] = rel;
     const parents = parentsOf[childId];
     
     // Only draw if this child is NOT part of a partnership (single parent or no partnership defined)
@@ -1508,17 +1533,20 @@ function renderGenogram(data) {
       const parentPos = positionMap[parentId];
       const childPos = positionMap[childId];
       if (parentPos && childPos) {
-        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+        const isAdopted = relType && relType.includes('adoptive');
+        drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
       }
     } else if (parents.length === 2) {
       // Check if there's NO partnership between the parents
-      const key = `${parents[0]}-${parents[1]}`;
+      const sortedParents = [...new Set(parents)].sort((a, b) => a - b);
+      const key = `${sortedParents[0]}-${sortedParents[1]}`;
       if (!partnershipMap[key]) {
         // No partnership defined - draw traditional parent-child lines
         const parentPos = positionMap[parentId];
         const childPos = positionMap[childId];
         if (parentPos && childPos) {
-          drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y);
+          const isAdopted = relType && relType.includes('adoptive');
+          drawParentChildLine(svg, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
         }
       }
     }

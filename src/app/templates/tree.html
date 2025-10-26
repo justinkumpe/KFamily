@@ -837,7 +837,7 @@ async function saveLifeEvent() {
     event_type: document.getElementById('eventType').value,
     title: document.getElementById('eventTitle').value,
     description: document.getElementById('eventDescription').value || null,
-    event_date: document.getElementById('eventDate').value,
+    event_date: document.getElementById('eventDate').value || null,
     end_date: document.getElementById('eventEndDate').value || null,
     location: document.getElementById('eventLocation').value || null,
     show_on_genogram: document.getElementById('showOnGenogram').checked,

@@ -1746,7 +1746,17 @@ function renderGenogram(data) {
   
   const drawnConnections = new Set(); // Track already-drawn connections to avoid duplicates
   
-  data.relationships.forEach(rel => {
+  // Sort relationships to prioritize adoptive relationships (so they're drawn first)
+  const sortedRelationships = [...data.relationships].sort((a, b) => {
+    const aType = a[2] || '';
+    const bType = b[2] || '';
+    // Adoptive relationships come first
+    if (aType.includes('adoptive') && !bType.includes('adoptive')) return -1;
+    if (!aType.includes('adoptive') && bType.includes('adoptive')) return 1;
+    return 0;
+  });
+  
+  sortedRelationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
     
     // Skip if we already drew this connection

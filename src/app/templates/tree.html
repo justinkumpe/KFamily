@@ -103,6 +103,10 @@
     fill: #2C3E50;
     text-anchor: middle;
     pointer-events: none;
+    paint-order: stroke fill;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linejoin: round;
   }
   
   .person-age {
@@ -110,6 +114,10 @@
     fill: #7F8C8D;
     text-anchor: middle;
     pointer-events: none;
+    paint-order: stroke fill;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linejoin: round;
   }
   
   .person-dates {
@@ -117,6 +125,10 @@
     fill: #95A5A6;
     text-anchor: middle;
     pointer-events: none;
+    paint-order: stroke fill;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linejoin: round;
   }
   
   .relationship-label {
@@ -1474,6 +1486,8 @@ function renderGenogram(data) {
   svg.appendChild(linesGroup);
   svg.appendChild(peopleGroup);
   
+  console.log('✅ SVG Layer Groups Created:', { linesGroup, peopleGroup });
+  
   // Calculate generations for each person
   const generations = {};
   const personGeneration = {};
@@ -1494,8 +1508,9 @@ function renderGenogram(data) {
     childrenOf[parentId].push(childId);
     parentsOf[childId].push(parentId);
     
-    // Store relationship type for later (to detect adopted children)
+    // Store relationship type for BOTH directions (to detect adopted children)
     relationshipTypes[`${parentId}-${childId}`] = relType || 'child';
+    relationshipTypes[`${childId}-${parentId}`] = relType || 'child';
   });
   
   // Assign generations using BFS from root
@@ -1613,6 +1628,7 @@ function renderGenogram(data) {
         const sortedIds = [partnership.person1_id, partnership.person2_id].sort((a, b) => a - b);
         const partnershipKey = `${sortedIds[0]}-${sortedIds[1]}`;
         
+        console.log('Drawing partnership line to linesGroup:', linesGroup);
         drawPartnershipLine(linesGroup, x1, pos1.y, x2, pos2.y, partnership.relationship_type);
         
         // Draw children from this partnership
@@ -1707,15 +1723,19 @@ function renderGenogram(data) {
   }
   
   // Draw parent-child lines for children NOT part of a partnership
+  console.log('Drawing single-parent child connections...');
   data.relationships.forEach(rel => {
     const [parentId, childId, relType] = rel;
     const parents = parentsOf[childId];
+    
+    console.log(`Checking child ${childId}: parents =`, parents);
     
     // Only draw if this child is NOT part of a partnership (single parent or no partnership defined)
     if (!parents || parents.length === 1) {
       const parentPos = positionMap[parentId];
       const childPos = positionMap[childId];
       if (parentPos && childPos) {
+        console.log(`Drawing single-parent line: parent ${parentId} -> child ${childId}, adopted = ${relType && relType.includes('adoptive')}`);
         const isAdopted = relType && relType.includes('adoptive');
         drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
       }
@@ -1723,11 +1743,13 @@ function renderGenogram(data) {
       // Check if there's NO partnership between the parents
       const sortedParents = [...new Set(parents)].sort((a, b) => a - b);
       const key = `${sortedParents[0]}-${sortedParents[1]}`;
+      console.log(`Child ${childId} has 2 parents, checking for partnership ${key}:`, partnershipMap[key]);
       if (!partnershipMap[key]) {
         // No partnership defined - draw traditional parent-child lines
         const parentPos = positionMap[parentId];
         const childPos = positionMap[childId];
         if (parentPos && childPos) {
+          console.log(`Drawing no-partnership line: parent ${parentId} -> child ${childId}`);
           const isAdopted = relType && relType.includes('adoptive');
           drawParentChildLine(linesGroup, parentPos.x, parentPos.y, childPos.x, childPos.y, isAdopted);
         }
@@ -1736,6 +1758,7 @@ function renderGenogram(data) {
   });
   
   // Draw all people (must be drawn AFTER all lines to appear on top)
+  console.log('Drawing people to peopleGroup:', peopleGroup);
   Object.keys(data.people).forEach(personId => {
     const person = data.people[personId];
     const pos = positionMap[personId];
@@ -1747,6 +1770,12 @@ function renderGenogram(data) {
   // Replace container content with SVG
   document.getElementById('tree-container').innerHTML = '';
   document.getElementById('tree-container').appendChild(svg);
+  
+  // Debug: Log the actual DOM structure
+  console.log('Final SVG structure:');
+  console.log('- Lines in linesGroup:', linesGroup.children.length);
+  console.log('- People in peopleGroup:', peopleGroup.children.length);
+  console.log('- SVG children order:', Array.from(svg.children).map(child => child.id));
 }
 
 // Load tree when page loads

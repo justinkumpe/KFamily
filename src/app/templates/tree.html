@@ -1328,36 +1328,52 @@ function drawPersonSymbol(container, x, y, person, isCurrent = false) {
   name.textContent = `${person.first_name || ''} ${person.last_name || ''}`.trim() || person.display_name;
   g.appendChild(name);
   
-  // Add age if available
+  // Consistent formatting for all people:
+  // Line 1: Age (or age at death in parentheses if deceased)
+  // Line 2: Dates (birth year, death year, adoption year)
+  
+  let currentY = y + PERSON_LABEL_OFFSET + 14;
+  
+  // Add age line if available
   if (person.age !== null && person.age !== undefined) {
     const age = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     age.setAttribute('x', x);
-    age.setAttribute('y', y + PERSON_LABEL_OFFSET + 14);
+    age.setAttribute('y', currentY);
     age.setAttribute('class', 'person-age');
+    // Deceased: show age in parentheses, Living: show "Age XX"
     age.textContent = person.death_date ? `(${person.age})` : `Age ${person.age}`;
     g.appendChild(age);
+    currentY += 12; // Move down for next line
   }
   
-  // Add birth year and/or adoption date if available
-  if (person.birthday || person.adoption_date) {
+  // Add dates line if any dates are available
+  if (person.birthday || person.death_date || person.adoption_date) {
     const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     dates.setAttribute('x', x);
-    dates.setAttribute('y', y + PERSON_LABEL_OFFSET + 26);
+    dates.setAttribute('y', currentY);
     dates.setAttribute('class', 'person-dates');
     
     let dateText = '';
+    
+    // Birth and death years
     if (person.birthday) {
       const birthYear = new Date(person.birthday).getFullYear();
-      dateText = person.death_date ? 
-        `${birthYear} - ${new Date(person.death_date).getFullYear()}` : 
-        `b. ${birthYear}`;
+      if (person.death_date) {
+        const deathYear = new Date(person.death_date).getFullYear();
+        dateText = `${birthYear} - ${deathYear}`;
+      } else {
+        dateText = `b. ${birthYear}`;
+      }
     }
     
+    // Add adoption year if adopted
     if (person.adoption_date) {
       const adoptYear = new Date(person.adoption_date).getFullYear();
       if (dateText) {
+        // If we already have birth/death info, append adoption
         dateText += `, adopted ${adoptYear}`;
       } else {
+        // Only adoption date available
         dateText = `adopted ${adoptYear}`;
       }
     }

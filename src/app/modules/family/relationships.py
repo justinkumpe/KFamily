@@ -495,3 +495,67 @@ def update_user_reciprocals(user_id: int):
         "message": f"Updated {updated_count} reciprocal relationships"
     }), 200
 
+
+@relationships_bp.get("/conflicts")
+@api_login_required
+def find_conflicting_relationships():
+    """
+    Find cases where the same two people have multiple conflicting relationship types.
+    For example: A is both 'grandfather' and 'cousin' to B.
+    """
+    sess = g.db_session
+    
+    # Get all relationships
+    all_rels = sess.scalars(select(UserRelationship)).all()
+    
+    # Group by user pair (ignoring direction)
+    pairs = {}
+    for rel in all_rels:
+        # Create a normalized pair key (smaller id first)
+        pair_key = tuple(sorted([rel.user_id, rel.related_user_id]))
+        if pair_key not in pairs:
+            pairs[pair_key] = []
+        pairs[pair_key].append({
+            'id': rel.id,
+            'user_id': rel.user_id,
+            'related_user_id': rel.related_user_id,
+            'relationship_type': rel.relationship_type,
+            'user_name': rel.user.display_name,
+            'related_user_name': rel.related_user.display_name,
+        })
+    
+    # Find conflicts - pairs with multiple different relationship types
+    conflicts = []
+    for pair_key, rels in pairs.items():
+        # Get unique relationship types for this pair
+        types = set(r['relationship_type'] for r in rels)
+        
+        # Check for conflicting types
+        # Reciprocals are expected (e.g., father/son), so we need to identify actual conflicts
+        conflicting_types = set()
+        for t in types:
+            # Grandparent/cousin conflict
+            if t in ['grandfather', 'grandmother', 'grandparent'] and 'cousin' in types:
+                conflicting_types.update([t, 'cousin'])
+            # Parent/sibling conflict
+            if t in ['father', 'mother', 'parent'] and any(s in types for s in ['brother', 'sister', 'sibling']):
+                conflicting_types.update([t] + [s for s in types if s in ['brother', 'sister', 'sibling']])
+            # Aunt-uncle/cousin conflict (could be valid in some cases)
+            if t in ['aunt', 'uncle'] and 'cousin' in types:
+                conflicting_types.update([t, 'cousin'])
+        
+        if conflicting_types:
+            conflicts.append({
+                'user1_id': pair_key[0],
+                'user2_id': pair_key[1],
+                'user1_name': rels[0]['user_name'] if rels[0]['user_id'] == pair_key[0] else rels[0]['related_user_name'],
+                'user2_name': rels[0]['related_user_name'] if rels[0]['user_id'] == pair_key[0] else rels[0]['user_name'],
+                'conflicting_types': sorted(list(conflicting_types)),
+                'all_relationships': rels,
+            })
+    
+    return jsonify({
+        'total_conflicts': len(conflicts),
+        'conflicts': conflicts,
+    }), 200
+

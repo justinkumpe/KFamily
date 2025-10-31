@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash
+from flask import Blueprint, current_app, g, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField
@@ -36,7 +36,7 @@ def _is_safe_url(target: str) -> bool:
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        sess = current_app.session
+        sess = g.db_session
         user = sess.scalar(select(User).where(User.email == form.email.data))
         if user:
             # Check if user is record-only (cannot login)
@@ -66,7 +66,7 @@ def logout():
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
-        sess = current_app.session
+        sess = g.db_session
         existing = sess.scalar(select(User).where(User.email == form.email.data))
         if existing:
             flash("User already exists", "warning")
@@ -79,13 +79,13 @@ def register():
         )
         user.set_password(form.password.data)
         # attach default groups
-        groups = {g.name: g for g in sess.scalars(select(Group)).all()}
+        groups = {grp.name: grp for grp in sess.scalars(select(Group)).all()}
         for name in ("user",):
             if name not in groups:
-                g = Group(name=name, description=name)
-                sess.add(g)
+                grp = Group(name=name, description=name)
+                sess.add(grp)
                 sess.flush()
-                groups[name] = g
+                groups[name] = grp
             user.groups.append(groups[name])
         sess.add(user)
         sess.commit()

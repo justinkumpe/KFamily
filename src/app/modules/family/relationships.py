@@ -1,7 +1,7 @@
 """Routes for direct user-to-user family relationships."""
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select, or_
 
 from .models import UserRelationship
@@ -201,7 +201,7 @@ def get_reciprocal_relationship(relationship_type: str, user_sex: str | None = N
 @api_login_required
 def get_user_relationships(user_id: int):
     """Get all direct family relationships for a user."""
-    sess = current_app.session
+    sess = g.db_session
     
     # Get relationships where user is the primary
     outgoing = sess.scalars(
@@ -252,7 +252,7 @@ def create_relationship():
     etc.
     """
     data = request.get_json(force=True)
-    sess = current_app.session
+    sess = g.db_session
     
     user_id = data.get("user_id")
     related_user_id = data.get("related_user_id")
@@ -360,7 +360,7 @@ def create_relationship():
 @api_login_required
 def delete_relationship(relationship_id: int):
     """Delete a direct family relationship and its reciprocal."""
-    sess = current_app.session
+    sess = g.db_session
     relationship = sess.get(UserRelationship, relationship_id)
     
     if not relationship:
@@ -406,7 +406,7 @@ def update_user_reciprocals(user_id: int):
     Update all reciprocal relationships when user's sex changes.
     This ensures that gendered relationships (father/mother, son/daughter) are correct.
     """
-    sess = current_app.session
+    sess = g.db_session
     user = sess.get(User, user_id)
     
     if not user:

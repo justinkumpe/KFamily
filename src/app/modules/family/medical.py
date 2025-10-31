@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 
 from .models_genogram import MedicalCondition
@@ -18,7 +18,7 @@ medical_bp = Blueprint("medical", __name__)
 def create_medical_condition():
     """Create a new medical condition."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     if not all(k in data for k in ['user_id', 'condition_name']):
         return jsonify({"error": "Missing required fields"}), 400
@@ -50,7 +50,7 @@ def create_medical_condition():
 @api_login_required
 def get_medical_condition(condition_id: int):
     """Get a specific medical condition."""
-    sess = current_app.session
+    sess = g.db_session
     condition = sess.get(MedicalCondition, condition_id)
     
     if not condition:
@@ -64,7 +64,7 @@ def get_medical_condition(condition_id: int):
 def update_medical_condition(condition_id: int):
     """Update a medical condition."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     condition = sess.get(MedicalCondition, condition_id)
     if not condition:
@@ -98,7 +98,7 @@ def update_medical_condition(condition_id: int):
 @api_login_required
 def delete_medical_condition(condition_id: int):
     """Delete a medical condition."""
-    sess = current_app.session
+    sess = g.db_session
     condition = sess.get(MedicalCondition, condition_id)
     
     if not condition:
@@ -114,7 +114,7 @@ def delete_medical_condition(condition_id: int):
 @api_login_required
 def get_user_medical_conditions(user_id: int):
     """Get all medical conditions for a user."""
-    sess = current_app.session
+    sess = g.db_session
     
     user = sess.get(User, user_id)
     if not user:

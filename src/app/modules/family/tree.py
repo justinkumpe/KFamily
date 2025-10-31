@@ -1,7 +1,7 @@
 """Routes for family tree visualization."""
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, g, jsonify
 from sqlalchemy import select, or_
 
 from .models import UserRelationship
@@ -273,6 +273,7 @@ def build_complete_family_network(root_user_id: int, sess):
     Returns all people in the network with their actual parent-child relationships,
     partnerships, and life events.
     """
+    print(f"🔍 build_complete_family_network called with root_user_id={root_user_id}")
     visited = set()
     people = {}
     relationships = []  # List of (parent_id, child_id, relationship_type) tuples
@@ -293,15 +294,19 @@ def build_complete_family_network(root_user_id: int, sess):
             'gravatar_url': user.gravatar_url(size=120),
         }
     
-    def explore_network(user_id, depth=0, max_depth=5):
+    def explore_network(user_id, depth=0, max_depth=10):
         """Recursively explore the family network."""
         if user_id in visited or depth > max_depth:
+            print(f"❌ Skipping user {user_id}: visited={user_id in visited}, depth={depth}, max={max_depth}")
             return
         
         visited.add(user_id)
         user = sess.get(User, user_id)
         if not user:
+            print(f"❌ User {user_id} not found in database!")
             return
+        
+        print(f"✅ Exploring user {user_id} ({user.first_name}) at depth {depth}")
         
         # Add this person to our people dict
         people[user_id] = get_person_data(user)
@@ -381,7 +386,7 @@ def get_family_tree():
         print("=== get_family_tree called ===")
         from flask_login import current_user
         print(f"Current user ID: {current_user.id}")
-        sess = current_app.session
+        sess = g.db_session
         
         # Get current user info
         user = sess.get(User, current_user.id)

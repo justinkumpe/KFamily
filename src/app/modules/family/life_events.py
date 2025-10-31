@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 
 from .models_genogram import LifeEvent, LifeEventType
@@ -18,7 +18,7 @@ life_events_bp = Blueprint("life_events", __name__)
 def create_life_event():
     """Create a new life event."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     # Validate required fields
     if not all(k in data for k in ['user_id', 'event_type', 'title', 'event_date']):
@@ -54,7 +54,7 @@ def create_life_event():
 @api_login_required
 def get_life_event(event_id: int):
     """Get a specific life event."""
-    sess = current_app.session
+    sess = g.db_session
     life_event = sess.get(LifeEvent, event_id)
     
     if not life_event:
@@ -68,7 +68,7 @@ def get_life_event(event_id: int):
 def update_life_event(event_id: int):
     """Update a life event."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     life_event = sess.get(LifeEvent, event_id)
     if not life_event:
@@ -105,7 +105,7 @@ def update_life_event(event_id: int):
 @api_login_required
 def delete_life_event(event_id: int):
     """Delete a life event."""
-    sess = current_app.session
+    sess = g.db_session
     life_event = sess.get(LifeEvent, event_id)
     
     if not life_event:
@@ -121,7 +121,7 @@ def delete_life_event(event_id: int):
 @api_login_required
 def get_user_life_events(user_id: int):
     """Get all life events for a specific user."""
-    sess = current_app.session
+    sess = g.db_session
     
     # Verify user exists
     user = sess.get(User, user_id)

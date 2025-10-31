@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 
 from .models import Household, Person, HouseholdMember
@@ -16,7 +16,7 @@ family_bp = Blueprint("family", __name__)
 def list_households():
     """List households visible to the current user."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     # Get all households
     all_households = sess.scalars(select(Household)).all()
@@ -63,8 +63,8 @@ def create_household():
         phone=data.get("phone"),
         email=data.get("email"),
     )
-    current_app.session.add(h)
-    current_app.session.commit()
+    g.db_session.add(h)
+    g.db_session.commit()
     return jsonify({"id": h.id, "name": h.name}), 201
 
 
@@ -83,8 +83,8 @@ def add_person(household_id: int):
         email=data.get("email"),
         relation=data.get("relation"),
     )
-    current_app.session.add(p)
-    current_app.session.commit()
+    g.db_session.add(p)
+    g.db_session.commit()
     return jsonify({"id": p.id, "household_id": p.household_id}), 201
 
 
@@ -93,7 +93,7 @@ def add_person(household_id: int):
 def add_household_member(household_id: int):
     """Add a user to a household with a specific relationship type."""
     data = request.get_json(force=True)
-    sess = current_app.session
+    sess = g.db_session
     
     # Validate household exists
     household = sess.get(Household, household_id)
@@ -140,7 +140,7 @@ def add_household_member(household_id: int):
 @api_require_groups(["family-editor", "family-admin", "admin", "super-admin"])
 def remove_household_member(household_id: int, member_id: int):
     """Remove a user from a household."""
-    sess = current_app.session
+    sess = g.db_session
     
     # Validate household member exists and belongs to this household
     member = sess.get(HouseholdMember, member_id)
@@ -160,7 +160,7 @@ def remove_household_member(household_id: int, member_id: int):
 @api_require_groups(["family-admin", "admin", "super-admin"])
 def delete_household(household_id: int):
     """Delete a household. Only admins can delete households."""
-    sess = current_app.session
+    sess = g.db_session
     
     household = sess.get(Household, household_id)
     if not household:

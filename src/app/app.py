@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from flask import Flask, jsonify, render_template, redirect, url_for, request
+from flask import Flask, jsonify, render_template, redirect, url_for, request, g
 from flask_login import LoginManager, current_user, login_required
 from flask_wtf import CSRFProtect
 
@@ -38,20 +38,19 @@ def create_app() -> Flask:
 
     @login_manager.user_loader
     def load_user(user_id: str):
-        sess = app.session  # type: ignore[attr-defined]
         from sqlalchemy import select
         # Eager-load groups to ensure has_any_group works correctly
         stmt = select(User).where(User.id == int(user_id)).options(selectinload(User.groups))
-        return sess.scalar(stmt)
+        return g.db_session.scalar(stmt)
 
-    # DB session per request
+    # DB session per request (request-local via Flask g)
     @app.before_request
     def _create_session():  # type: ignore[no-redef]
-        app.session = SessionLocal()  # type: ignore[attr-defined]
+        g.db_session = SessionLocal()
 
     @app.teardown_request
     def _shutdown_session(exception: Exception | None):  # type: ignore[no-redef]
-        sess = getattr(app, "session", None)
+        sess = getattr(g, "db_session", None)
         if sess is not None:
             try:
                 if exception is not None:

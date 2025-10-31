@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select
 
 from app.utils.auth import api_login_required
@@ -74,7 +74,7 @@ def can_view_timeline_event(current_user: User, event: TimelineEvent) -> bool:
     if event.visibility == "private":
         return False
     
-    sess = current_app.session
+    sess = g.db_session
     event_user = sess.get(User, event.user_id)
     
     if event.visibility == "family":
@@ -203,7 +203,7 @@ def get_user_timeline(user_id: int):
         - include_family: Include family events (default: true)
     """
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     # Check if user exists
     user = sess.get(User, user_id)
@@ -256,7 +256,7 @@ def get_user_timeline(user_id: int):
 def create_timeline_event(user_id: int):
     """Create a new timeline event for a user."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     # Check if user exists
     user = sess.get(User, user_id)
@@ -311,7 +311,7 @@ def create_timeline_event(user_id: int):
 def update_timeline_event(event_id: int):
     """Update a timeline event."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     event = sess.get(TimelineEvent, event_id)
     if not event:
@@ -363,7 +363,7 @@ def update_timeline_event(event_id: int):
 def delete_timeline_event(event_id: int):
     """Delete a timeline event."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     event = sess.get(TimelineEvent, event_id)
     if not event:

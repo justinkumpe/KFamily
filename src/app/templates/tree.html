@@ -105,7 +105,7 @@
     pointer-events: none;
     paint-order: stroke fill;
     stroke: white;
-    stroke-width: 3px;
+    stroke-width: 5px; /* Increased from 3px for better separation */
     stroke-linejoin: round;
   }
   
@@ -116,7 +116,7 @@
     pointer-events: none;
     paint-order: stroke fill;
     stroke: white;
-    stroke-width: 3px;
+    stroke-width: 5px; /* Increased from 3px for better separation */
     stroke-linejoin: round;
   }
   
@@ -127,7 +127,7 @@
     pointer-events: none;
     paint-order: stroke fill;
     stroke: white;
-    stroke-width: 3px;
+    stroke-width: 5px; /* Increased from 3px for better separation */
     stroke-linejoin: round;
   }
   
@@ -1188,7 +1188,7 @@ function showToast(message, type = 'info') {
 const SYMBOL_SIZE = 40;
 const HORIZONTAL_SPACING = 300; // Increased from 250 to prevent visual line connections
 const VERTICAL_SPACING = 150;
-const PERSON_LABEL_OFFSET = 55;
+const PERSON_LABEL_OFFSET = 35; // Gap between symbol bottom and name (symbol extends to y+20, so this gives 15px gap)
 
 // Load and render family tree
 async function loadFamilyTree() {
@@ -1215,6 +1215,8 @@ async function loadFamilyTree() {
     }
     
     console.log('Family tree data:', data);
+    console.log('People in tree:', Object.keys(data.people).map(id => `${id}: ${data.people[id].first_name}`));
+    console.log('Relationships:', data.relationships.map(r => `${r[0]} -> ${r[1]} (${r[2]})`));
     renderGenogram(data);
   } catch (error) {
     console.error('Error loading family tree:', error);
@@ -1274,6 +1276,30 @@ function drawPersonSymbol(container, x, y, person, isCurrent = false) {
   
   g.appendChild(shape);
   
+  // Add brackets [ ] for adopted children (GenoPro standard)
+  if (person.adoption_date) {
+    const bracketSize = SYMBOL_SIZE/2 + 6; // Slightly larger than symbol
+    const bracketWidth = 4;
+    
+    // Left bracket [
+    const leftBracket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const leftPath = `M ${x - bracketSize} ${y - bracketSize} L ${x - bracketSize - bracketWidth} ${y - bracketSize} L ${x - bracketSize - bracketWidth} ${y + bracketSize} L ${x - bracketSize} ${y + bracketSize}`;
+    leftBracket.setAttribute('d', leftPath);
+    leftBracket.setAttribute('fill', 'none');
+    leftBracket.setAttribute('stroke', '#333');
+    leftBracket.setAttribute('stroke-width', '2');
+    g.appendChild(leftBracket);
+    
+    // Right bracket ]
+    const rightBracket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const rightPath = `M ${x + bracketSize} ${y - bracketSize} L ${x + bracketSize + bracketWidth} ${y - bracketSize} L ${x + bracketSize + bracketWidth} ${y + bracketSize} L ${x + bracketSize} ${y + bracketSize}`;
+    rightBracket.setAttribute('d', rightPath);
+    rightBracket.setAttribute('fill', 'none');
+    rightBracket.setAttribute('stroke', '#333');
+    rightBracket.setAttribute('stroke-width', '2');
+    g.appendChild(rightBracket);
+  }
+  
   // Add X if deceased
   if (person.death_date) {
     const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1299,7 +1325,7 @@ function drawPersonSymbol(container, x, y, person, isCurrent = false) {
   name.setAttribute('x', x);
   name.setAttribute('y', y + PERSON_LABEL_OFFSET);
   name.setAttribute('class', 'person-name');
-  name.textContent = person.first_name || person.display_name;
+  name.textContent = `${person.first_name || ''} ${person.last_name || ''}`.trim() || person.display_name;
   g.appendChild(name);
   
   // Add age if available
@@ -1312,16 +1338,31 @@ function drawPersonSymbol(container, x, y, person, isCurrent = false) {
     g.appendChild(age);
   }
   
-  // Add birth year if available
-  if (person.birthday) {
-    const birthYear = new Date(person.birthday).getFullYear();
+  // Add birth year and/or adoption date if available
+  if (person.birthday || person.adoption_date) {
     const dates = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     dates.setAttribute('x', x);
     dates.setAttribute('y', y + PERSON_LABEL_OFFSET + 26);
     dates.setAttribute('class', 'person-dates');
-    dates.textContent = person.death_date ? 
-      `${birthYear} - ${new Date(person.death_date).getFullYear()}` : 
-      `b. ${birthYear}`;
+    
+    let dateText = '';
+    if (person.birthday) {
+      const birthYear = new Date(person.birthday).getFullYear();
+      dateText = person.death_date ? 
+        `${birthYear} - ${new Date(person.death_date).getFullYear()}` : 
+        `b. ${birthYear}`;
+    }
+    
+    if (person.adoption_date) {
+      const adoptYear = new Date(person.adoption_date).getFullYear();
+      if (dateText) {
+        dateText += `, adopted ${adoptYear}`;
+      } else {
+        dateText = `adopted ${adoptYear}`;
+      }
+    }
+    
+    dates.textContent = dateText;
     g.appendChild(dates);
   }
   
@@ -1342,6 +1383,48 @@ function drawLine(container, x1, y1, x2, y2, className, isAdopted = false) {
   }
   container.appendChild(line); // Append to container (will be linesGroup)
   return line;
+}
+
+// Draw horizontal line with bridge in middle to show it crosses other lines
+function drawLineWithBridge(container, x1, y1, x2, y2, className, isAdopted = false) {
+  const bridgeWidth = 10; // Width of the bridge gap
+  const bridgeHeight = 8; // Height of the arc
+  const midX = (x1 + x2) / 2;
+  
+  // Left segment
+  const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line1.setAttribute('x1', x1);
+  line1.setAttribute('y1', y1);
+  line1.setAttribute('x2', midX - bridgeWidth);
+  line1.setAttribute('y2', y2);
+  line1.setAttribute('class', className);
+  if (isAdopted) {
+    line1.setAttribute('stroke-dasharray', '5,5');
+  }
+  container.appendChild(line1);
+  
+  // Bridge arc
+  const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const arcPath = `M ${midX - bridgeWidth} ${y1} Q ${midX} ${y1 - bridgeHeight} ${midX + bridgeWidth} ${y2}`;
+  arc.setAttribute('d', arcPath);
+  arc.setAttribute('fill', 'none');
+  arc.setAttribute('class', className);
+  if (isAdopted) {
+    arc.setAttribute('stroke-dasharray', '5,5');
+  }
+  container.appendChild(arc);
+  
+  // Right segment
+  const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line2.setAttribute('x1', midX + bridgeWidth);
+  line2.setAttribute('y1', y1);
+  line2.setAttribute('x2', x2);
+  line2.setAttribute('y2', y2);
+  line2.setAttribute('class', className);
+  if (isAdopted) {
+    line2.setAttribute('stroke-dasharray', '5,5');
+  }
+  container.appendChild(line2);
 }
 
 // Draw marriage line (horizontal line connecting spouses)
@@ -1444,21 +1527,206 @@ function drawPartnershipLine(container, x1, y1, x2, y2, partnershipType) {
   container.appendChild(line);
 }
 
+// Track all drawn lines to detect intersections
+const drawnLines = [];
+
 // Draw parent-child connection
 function drawParentChildLine(svg, parentX, parentY, childX, childY, isAdopted = false) {
   console.log(`📍 drawParentChildLine: parent(${parentX}, ${parentY}) -> child(${childX}, ${childY}), adopted=${isAdopted}`);
-  // Vertical line from parent down
-  const midY = parentY + VERTICAL_SPACING / 2;
-  drawLine(svg, parentX, parentY + SYMBOL_SIZE/2, parentX, midY, 'parent-child-line', isAdopted);
-  // Horizontal line to child's X position
-  drawLine(svg, parentX, midY, childX, midY, 'parent-child-line', isAdopted);
-  // Vertical line to child
-  drawLine(svg, childX, midY, childX, childY - SYMBOL_SIZE/2, 'parent-child-line', isAdopted);
+  
+  // If parent and child are vertically aligned, draw single straight line
+  if (parentX === childX) {
+    const line = { x1: parentX, y1: parentY + SYMBOL_SIZE/2, x2: childX, y2: childY - SYMBOL_SIZE/2, type: 'vertical' };
+    drawLine(svg, line.x1, line.y1, line.x2, line.y2, 'parent-child-line', isAdopted);
+    drawnLines.push(line);
+  } else {
+    // Use stepped connector
+    const dropDistance = VERTICAL_SPACING / 3;
+    const midY = parentY + SYMBOL_SIZE/2 + dropDistance;
+    
+    // Vertical from parent
+    const vLine1 = { x1: parentX, y1: parentY + SYMBOL_SIZE/2, x2: parentX, y2: midY, type: 'vertical' };
+    drawLine(svg, vLine1.x1, vLine1.y1, vLine1.x2, vLine1.y2, 'parent-child-line', isAdopted);
+    drawnLines.push(vLine1);
+    
+    // Horizontal connector - check for intersections with existing vertical lines
+    const hLine = { x1: Math.min(parentX, childX), y1: midY, x2: Math.max(parentX, childX), y2: midY, type: 'horizontal' };
+    const intersections = findIntersections(hLine);
+    
+    if (intersections.length > 0) {
+      console.log(`  Found ${intersections.length} intersections for horizontal line at Y=${midY}`);
+      drawLineWithIntersections(svg, hLine.x1, hLine.y1, hLine.x2, hLine.y2, intersections, 'parent-child-line', isAdopted);
+    } else {
+      drawLine(svg, hLine.x1, hLine.y1, hLine.x2, hLine.y2, 'parent-child-line', isAdopted);
+    }
+    drawnLines.push(hLine);
+    
+    // Vertical to child
+    const vLine2 = { x1: childX, y1: midY, x2: childX, y2: childY - SYMBOL_SIZE/2, type: 'vertical' };
+    drawLine(svg, vLine2.x1, vLine2.y1, vLine2.x2, vLine2.y2, 'parent-child-line', isAdopted);
+    drawnLines.push(vLine2);
+  }
+}
+
+// Find intersections between a horizontal line and existing vertical lines
+function findIntersections(hLine) {
+  const intersections = [];
+  
+  console.log(`🔍 Checking intersections for horizontal line from X=${hLine.x1} to X=${hLine.x2} at Y=${hLine.y1}`);
+  console.log(`   Previously drawn lines: ${drawnLines.length}`);
+  
+  for (const line of drawnLines) {
+    if (line.type === 'vertical') {
+      // Check if vertical line crosses this horizontal line
+      const vX = line.x1; // x is same for vertical lines
+      const vY1 = Math.min(line.y1, line.y2);
+      const vY2 = Math.max(line.y1, line.y2);
+      const hY = hLine.y1; // y is same for horizontal lines
+      const hX1 = Math.min(hLine.x1, hLine.x2);
+      const hX2 = Math.max(hLine.x1, hLine.x2);
+      
+      console.log(`   Checking vLine at X=${vX}, Y=${vY1}-${vY2}`);
+      console.log(`     hLine range: X=${hX1}-${hX2}, Y=${hY}`);
+      
+      // Check if vertical line X is STRICTLY between horizontal line's X range (not at endpoints)
+      // A true crossing means the vertical line passes through the middle of the horizontal line
+      const vXInRange = vX > hX1 && vX < hX2;
+      
+      // Check if horizontal line Y is STRICTLY between vertical line's Y range (not at endpoints)
+      // A true crossing means the horizontal line passes through the middle of the vertical line
+      const hYInRange = hY > vY1 && hY < vY2;
+      
+      console.log(`     vX strictly between ${hX1} and ${hX2}? ${vXInRange} (vX=${vX})`);
+      console.log(`     hY strictly between ${vY1} and ${vY2}? ${hYInRange} (hY=${hY})`);
+      
+      // Only add intersection if BOTH lines pass through each other's middle (true crossing)
+      if (vXInRange && hYInRange) {
+        console.log(`   ✅ Found crossing at X=${vX} (vLine Y range: ${vY1}-${vY2})`);
+        intersections.push(vX);
+      }
+    }
+  }
+  
+  console.log(`   Total intersections found: ${intersections.length}`);
+  return intersections.sort((a, b) => a - b); // Sort by X position
+}
+
+// Find intersections between a vertical line and existing horizontal lines
+function findVerticalIntersections(vLine) {
+  const intersections = [];
+  
+  console.log(`🔍 Checking intersections for vertical line at X=${vLine.x1} from Y=${vLine.y1} to Y=${vLine.y2}`);
+  console.log(`   Previously drawn lines: ${drawnLines.length}`);
+  
+  for (const line of drawnLines) {
+    if (line.type === 'horizontal') {
+      // Check if horizontal line crosses this vertical line
+      const hY = line.y1; // y is same for horizontal lines
+      const hX1 = Math.min(line.x1, line.x2);
+      const hX2 = Math.max(line.x1, line.x2);
+      const vX = vLine.x1; // x is same for vertical lines
+      const vY1 = Math.min(vLine.y1, vLine.y2);
+      const vY2 = Math.max(vLine.y1, vLine.y2);
+      
+      console.log(`   Checking hLine at Y=${hY}, X=${hX1}-${hX2}`);
+      console.log(`     vLine range: Y=${vY1}-${vY2}, X=${vX}`);
+      
+      // Check if horizontal line Y is STRICTLY between vertical line's Y range (not at endpoints)
+      // A true crossing means the horizontal line passes through the middle of the vertical line
+      const hYInRange = hY > vY1 && hY < vY2;
+      
+      // Check if vertical line X is STRICTLY between horizontal line's X range (not at endpoints)
+      // A true crossing means the vertical line passes through the middle of the horizontal line
+      const vXInRange = vX > hX1 && vX < hX2;
+      
+      console.log(`     hY strictly between ${vY1} and ${vY2}? ${hYInRange} (hY=${hY})`);
+      console.log(`     vX strictly between ${hX1} and ${hX2}? ${vXInRange} (vX=${vX})`);
+      
+      // Only add intersection if BOTH lines pass through each other's middle (true crossing)
+      if (hYInRange && vXInRange) {
+        console.log(`   ✅ Found crossing at Y=${hY} (hLine X range: ${hX1}-${hX2})`);
+        intersections.push(hY);
+      }
+    }
+  }
+  
+  console.log(`   Total intersections found: ${intersections.length}`);
+  return intersections.sort((a, b) => a - b); // Sort by Y position
+}
+
+// Draw vertical line with bridges at intersection points
+function drawVerticalLineWithIntersections(svg, x1, y1, x2, y2, intersections, className, isAdopted = false) {
+  const bridgeWidth = 8;
+  const bridgeHeight = 6;
+  
+  let currentY = y1;
+  
+  for (const intersectionY of intersections) {
+    // Draw line segment up to the bridge
+    if (currentY < intersectionY - bridgeWidth) {
+      drawLine(svg, x1, currentY, x2, intersectionY - bridgeWidth, className, isAdopted);
+    }
+    
+    // Draw bridge arc (horizontal deviation for vertical line)
+    const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const arcPath = `M ${x1} ${intersectionY - bridgeWidth} Q ${x1 + bridgeHeight} ${intersectionY} ${x2} ${intersectionY + bridgeWidth}`;
+    arc.setAttribute('d', arcPath);
+    arc.setAttribute('fill', 'none');
+    arc.setAttribute('stroke', '#333');
+    arc.setAttribute('stroke-width', '2');
+    if (isAdopted) {
+      arc.setAttribute('stroke-dasharray', '5,5');
+    }
+    svg.appendChild(arc);
+    
+    currentY = intersectionY + bridgeWidth;
+  }
+  
+  // Draw final segment after last bridge
+  if (currentY < y2) {
+    drawLine(svg, x1, currentY, x2, y2, className, isAdopted);
+  }
+}
+
+// Draw horizontal line with bridges at intersection points
+function drawLineWithIntersections(svg, x1, y1, x2, y2, intersections, className, isAdopted = false) {
+  const bridgeWidth = 8;
+  const bridgeHeight = 6;
+  
+  let currentX = x1;
+  
+  for (const intersectionX of intersections) {
+    // Draw line segment up to the bridge
+    if (currentX < intersectionX - bridgeWidth) {
+      drawLine(svg, currentX, y1, intersectionX - bridgeWidth, y2, className, isAdopted);
+    }
+    
+    // Draw bridge arc
+    const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const arcPath = `M ${intersectionX - bridgeWidth} ${y1} Q ${intersectionX} ${y1 - bridgeHeight} ${intersectionX + bridgeWidth} ${y2}`;
+    arc.setAttribute('d', arcPath);
+    arc.setAttribute('fill', 'none');
+    arc.setAttribute('class', className);
+    if (isAdopted) {
+      arc.setAttribute('stroke-dasharray', '5,5');
+    }
+    svg.appendChild(arc);
+    
+    currentX = intersectionX + bridgeWidth;
+  }
+  
+  // Draw final segment after last bridge
+  if (currentX < x2) {
+    drawLine(svg, currentX, y1, x2, y2, className, isAdopted);
+  }
 }
 
 // Render the genogram
 function renderGenogram(data) {
   console.log('Starting renderGenogram with data:', data);
+  
+  // Reset line tracking for intersection detection
+  drawnLines.length = 0;
   
   // Store globally for modals and person selection
   allPeople = data.people;
@@ -1730,14 +1998,25 @@ function renderGenogram(data) {
             const firstChildY = childPositions[0].pos.y;
             const sibshipY = parentY + (firstChildY - parentY) / 2;
             
-            // Draw vertical line from partnership to sibship line
-            const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line1.setAttribute('x1', midX);
-            line1.setAttribute('y1', parentY);
-            line1.setAttribute('x2', midX);
-            line1.setAttribute('y2', sibshipY);
-            line1.setAttribute('class', 'parent-child-line');
-            linesGroup.appendChild(line1);
+            // Draw vertical line from partnership to sibship line - check for intersections
+            const partnershipVLine = { x1: midX, y1: parentY, x2: midX, y2: sibshipY, type: 'vertical' };
+            const partnershipVIntersections = findVerticalIntersections(partnershipVLine);
+            
+            if (partnershipVIntersections.length > 0) {
+              console.log(`  Partnership ${partnershipKey} vertical line has ${partnershipVIntersections.length} intersections`);
+              drawVerticalLineWithIntersections(linesGroup, midX, parentY, midX, sibshipY, partnershipVIntersections, 'parent-child-line', false);
+            } else {
+              const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              line1.setAttribute('x1', midX);
+              line1.setAttribute('y1', parentY);
+              line1.setAttribute('x2', midX);
+              line1.setAttribute('y2', sibshipY);
+              line1.setAttribute('class', 'parent-child-line');
+              linesGroup.appendChild(line1);
+            }
+            
+            // Track vertical line for intersection detection
+            drawnLines.push(partnershipVLine);
             
             if (childPositions.length === 1) {
               // Single child - direct line down
@@ -1769,14 +2048,25 @@ function renderGenogram(data) {
               console.log(`  X positions: ${childPositions.map(c => c.pos.x).join(', ')}`);
               console.log(`  Leftmost X: ${leftmostX}, Rightmost X: ${rightmostX}, Y: ${sibshipY}`);
               
-              // Horizontal sibship line
-              const sibLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-              sibLine.setAttribute('x1', leftmostX);
-              sibLine.setAttribute('y1', sibshipY);
-              sibLine.setAttribute('x2', rightmostX);
-              sibLine.setAttribute('y2', sibshipY);
-              sibLine.setAttribute('class', 'parent-child-line');
-              linesGroup.appendChild(sibLine);
+              // Horizontal sibship line - check for intersections with vertical lines
+              const sibLineData = { x1: leftmostX, y1: sibshipY, x2: rightmostX, y2: sibshipY, type: 'horizontal' };
+              const sibIntersections = findIntersections(sibLineData);
+              
+              if (sibIntersections.length > 0) {
+                console.log(`  Sibship line has ${sibIntersections.length} intersections`);
+                drawLineWithIntersections(linesGroup, leftmostX, sibshipY, rightmostX, sibshipY, sibIntersections, 'parent-child-line', false);
+              } else {
+                const sibLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                sibLine.setAttribute('x1', leftmostX);
+                sibLine.setAttribute('y1', sibshipY);
+                sibLine.setAttribute('x2', rightmostX);
+                sibLine.setAttribute('y2', sibshipY);
+                sibLine.setAttribute('class', 'parent-child-line');
+                linesGroup.appendChild(sibLine);
+              }
+              
+              // Track sibship line for intersection detection
+              drawnLines.push(sibLineData);
               
               // Vertical lines from sibship line to each child
               childPositions.forEach(child => {
@@ -1785,16 +2075,28 @@ function renderGenogram(data) {
                 const parent2Rel = relationshipTypes[`${partnership.person2_id}-${child.id}`] || '';
                 const isAdopted = parent1Rel.includes('adoptive') || parent2Rel.includes('adoptive');
                 
-                const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                vLine.setAttribute('x1', child.pos.x);
-                vLine.setAttribute('y1', sibshipY);
-                vLine.setAttribute('x2', child.pos.x);
-                vLine.setAttribute('y2', child.pos.y - SYMBOL_SIZE/2);
-                vLine.setAttribute('class', 'parent-child-line');
-                if (isAdopted) {
-                  vLine.setAttribute('stroke-dasharray', '5,5');
+                // Check for intersections with horizontal lines
+                const vLineData = { x1: child.pos.x, y1: sibshipY, x2: child.pos.x, y2: child.pos.y - SYMBOL_SIZE/2, type: 'vertical' };
+                const vIntersections = findVerticalIntersections(vLineData);
+                
+                if (vIntersections.length > 0) {
+                  console.log(`  Vertical drop to child ${child.id} has ${vIntersections.length} intersections`);
+                  drawVerticalLineWithIntersections(linesGroup, child.pos.x, sibshipY, child.pos.x, child.pos.y - SYMBOL_SIZE/2, vIntersections, 'parent-child-line', isAdopted);
+                } else {
+                  const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                  vLine.setAttribute('x1', child.pos.x);
+                  vLine.setAttribute('y1', sibshipY);
+                  vLine.setAttribute('x2', child.pos.x);
+                  vLine.setAttribute('y2', child.pos.y - SYMBOL_SIZE/2);
+                  vLine.setAttribute('class', 'parent-child-line');
+                  if (isAdopted) {
+                    vLine.setAttribute('stroke-dasharray', '5,5');
+                  }
+                  linesGroup.appendChild(vLine);
                 }
-                linesGroup.appendChild(vLine);
+                
+                // Track vertical line for intersection detection
+                drawnLines.push(vLineData);
               });
             }
           }

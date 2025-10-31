@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request, render_template
+from flask import Blueprint, current_app, g, jsonify, request, render_template
 from sqlalchemy import select
 
 from .models import User, Group, INITIAL_GROUPS
@@ -14,13 +14,13 @@ users_bp = Blueprint("users", __name__)
 
 @users_bp.post("/seed-groups")
 def seed_groups():
-    sess = current_app.session
-    existing = {g.name for g in sess.scalars(select(Group)).all()}
+    sess = g.db_session
+    existing = {grp.name for grp in sess.scalars(select(Group)).all()}
     created = []
     for name in INITIAL_GROUPS:
         if name not in existing:
-            g = Group(name=name, description=name)
-            sess.add(g)
+            grp = Group(name=name, description=name)
+            sess.add(grp)
             created.append(name)
     sess.commit()
     return jsonify({"created": created, "skipped": list(existing & set(INITIAL_GROUPS))})
@@ -38,7 +38,7 @@ def admin_users_page_api():
 def list_users():
     """List users visible to the current user."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     all_users = sess.scalars(select(User)).all()
     
@@ -118,13 +118,13 @@ def create_user():
     )
     if has_password:
         user.set_password(data["password"])
-    current_app.session.add(user)
-    current_app.session.commit()
+    g.db_session.add(user)
+    g.db_session.commit()
     
     # Sync timeline events for life dates (birth, adoption, death)
     from app.modules.timeline.helpers import sync_user_life_events
-    sync_user_life_events(user, current_app.session)
-    current_app.session.commit()
+    sync_user_life_events(user, g.db_session)
+    g.db_session.commit()
     
     return jsonify({
         "id": user.id,
@@ -141,7 +141,7 @@ def add_user_group(user_id: int):
     name = data.get("name")
     if not name:
         return jsonify({"error": "group name required"}), 400
-    sess = current_app.session
+    sess = g.db_session
     user = sess.get(User, user_id)
     if not user:
         return jsonify({"error": "not found"}), 404
@@ -163,7 +163,7 @@ def remove_user_group(user_id: int):
     name = data.get("name")
     if not name:
         return jsonify({"error": "group name required"}), 400
-    sess = current_app.session
+    sess = g.db_session
     user = sess.get(User, user_id)
     if not user:
         return jsonify({"error": "not found"}), 404
@@ -178,7 +178,7 @@ def remove_user_group(user_id: int):
 @api_allow_household_parent
 def update_user(user_id: int):
     data = request.get_json(force=True)
-    sess = current_app.session
+    sess = g.db_session
     user = sess.get(User, user_id)
     if not user:
         return jsonify({"error": "not found"}), 404
@@ -316,7 +316,7 @@ def update_user(user_id: int):
 @users_bp.delete("/<int:user_id>")
 @api_require_groups(["admin", "super-admin"])
 def delete_user(user_id: int):
-    sess = current_app.session
+    sess = g.db_session
     user = sess.get(User, user_id)
     if not user:
         return jsonify({"error": "not found"}), 404
@@ -329,18 +329,42 @@ def delete_user(user_id: int):
 @api_login_required
 def can_edit_user(user_id: int):
     """Check if the current user can edit the specified user."""
+    from flask import g
     from flask_login import current_user
+    from sqlalchemy.orm import selectinload
+    from ..family.models import HouseholdMember, Household
     
-    # Use the new can_edit_user method
-    can_edit = current_user.can_edit_user(user_id)
+    # Get a fresh copy of the current user from the database with relationships loaded
+    # This avoids session issues with the cached current_user object
+    # Use request-local g.db_session to avoid concurrent session access
+    
+    # Load the user fresh with necessary relationships for permission checks
+    # Use selectinload (separate queries) to avoid complex joins and session issues
+    stmt = (
+        select(User)
+        .where(User.id == current_user.id)
+        .options(
+            selectinload(User.groups),
+            selectinload(User.family_relationships),
+            selectinload(User.household_memberships).selectinload(HouseholdMember.household).selectinload(Household.members)
+        )
+    )
+    
+    fresh_user = g.db_session.scalar(stmt)
+    
+    if not fresh_user:
+        return jsonify({"can_edit": False, "reason": None})
+    
+    # Check permissions using the fresh user object
+    can_edit = fresh_user.can_edit_user(user_id)
     
     # Determine reason
     if can_edit:
-        if current_user.id == user_id:
+        if fresh_user.id == user_id:
             reason = "self"
-        elif current_user.has_any_group("admin", "super-admin"):
+        elif fresh_user.has_any_group("admin", "super-admin"):
             reason = "admin"
-        elif current_user.can_edit_household_member(user_id):
+        elif fresh_user.can_edit_household_member(user_id):
             reason = "household_admin"
         else:
             reason = "parent"
@@ -355,7 +379,7 @@ def can_edit_user(user_id: int):
 def get_user_profile(user_id: int):
     """Get a user's profile information with permission context."""
     from flask_login import current_user
-    sess = current_app.session
+    sess = g.db_session
     
     user = sess.get(User, user_id)
     if not user:
@@ -419,6 +443,6 @@ def get_user_profile(user_id: int):
 @users_bp.get("/groups")
 @api_require_groups(["admin", "super-admin"])
 def list_groups():
-    sess = current_app.session
+    sess = g.db_session
     groups = sess.scalars(select(Group)).all()
     return jsonify([{"id": g.id, "name": g.name, "description": g.description} for g in groups])

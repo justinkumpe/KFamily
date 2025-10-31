@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import select, or_
 
 from .models_genogram import Partnership, RelationshipType, RelationshipQuality, CustodyType
@@ -18,7 +18,7 @@ partnerships_bp = Blueprint("partnerships", __name__)
 def create_partnership():
     """Create a new partnership between two people."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     # Validate required fields
     if not all(k in data for k in ['person1_id', 'person2_id', 'relationship_type']):
@@ -60,7 +60,7 @@ def create_partnership():
 @api_login_required
 def get_partnership(partnership_id: int):
     """Get a specific partnership."""
-    sess = current_app.session
+    sess = g.db_session
     partnership = sess.get(Partnership, partnership_id)
     
     if not partnership:
@@ -74,7 +74,7 @@ def get_partnership(partnership_id: int):
 def update_partnership(partnership_id: int):
     """Update a partnership."""
     data = request.get_json()
-    sess = current_app.session
+    sess = g.db_session
     
     partnership = sess.get(Partnership, partnership_id)
     if not partnership:
@@ -109,7 +109,7 @@ def update_partnership(partnership_id: int):
 @api_login_required
 def delete_partnership(partnership_id: int):
     """Delete a partnership."""
-    sess = current_app.session
+    sess = g.db_session
     partnership = sess.get(Partnership, partnership_id)
     
     if not partnership:
@@ -125,7 +125,7 @@ def delete_partnership(partnership_id: int):
 @api_login_required
 def get_user_partnerships(user_id: int):
     """Get all partnerships for a specific user."""
-    sess = current_app.session
+    sess = g.db_session
     
     # Verify user exists
     user = sess.get(User, user_id)
